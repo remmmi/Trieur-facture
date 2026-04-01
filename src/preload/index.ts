@@ -6,7 +6,10 @@ const api = {
   scanFolder: (folderPath: string): Promise<unknown[]> => ipcRenderer.invoke('scan-folder', folderPath),
   selectDestinationFolder: (): Promise<string | null> => ipcRenderer.invoke('select-destination-folder'),
   ensurePdf: (filePath: string): Promise<string> => ipcRenderer.invoke('ensure-pdf', filePath),
-  readFile: (filePath: string): Promise<Uint8Array> => ipcRenderer.invoke('read-file', filePath)
+  readFile: (filePath: string): Promise<Uint8Array> => ipcRenderer.invoke('read-file', filePath),
+  processDocument: (data: unknown): Promise<{ success: boolean; destinationPath: string }> =>
+    ipcRenderer.invoke('process-document', data),
+  aiPreProcess: (pdfPath: string): Promise<unknown> => ipcRenderer.invoke('ai-pre-process', pdfPath)
 }
 
 if (process.contextIsolated) {

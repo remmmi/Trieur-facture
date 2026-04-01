@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { readFile } from 'fs/promises'
 import { selectFolder, scanFolder, selectDestinationFolder } from './services/fileService'
 import { ensurePdf } from './services/convertService'
+import { processDocument, runAiPreProcess, runAiPostProcess, type ProcessData } from './services/stampService'
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('select-folder', async () => {
@@ -23,5 +24,17 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('read-file', async (_event, filePath: string) => {
     const buffer = await readFile(filePath)
     return new Uint8Array(buffer)
+  })
+
+  ipcMain.handle('process-document', async (_event, data: ProcessData) => {
+    const result = await processDocument(data)
+    // Run AI post-process hook if registered
+    await runAiPostProcess(data, result)
+    return result
+  })
+
+  // AI hook: pre-process a PDF to get suggestions
+  ipcMain.handle('ai-pre-process', async (_event, pdfPath: string) => {
+    return runAiPreProcess(pdfPath)
   })
 }
