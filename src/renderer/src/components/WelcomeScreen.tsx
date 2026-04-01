@@ -1,8 +1,12 @@
 import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/button'
-import { FolderOpen, FolderOutput } from 'lucide-react'
+import { FolderOpen, FolderOutput, Settings } from 'lucide-react'
 
-export function WelcomeScreen(): React.JSX.Element {
+interface WelcomeScreenProps {
+  onOpenSettings: () => void
+}
+
+export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX.Element {
   const { sourceFolder, destinationFolder, setSourceFolder, setDestinationFolder, setFileQueue, setCurrentPdfPath } =
     useAppStore()
 
@@ -34,7 +38,16 @@ export function WelcomeScreen(): React.JSX.Element {
   const canStart = sourceFolder && destinationFolder && useAppStore.getState().fileQueue.length > 0
 
   return (
-    <div className="flex h-screen items-center justify-center">
+    <div className="flex h-screen items-center justify-center relative">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-4 right-4"
+        onClick={onOpenSettings}
+      >
+        <Settings className="h-5 w-5" />
+      </Button>
+
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-2">Trieur de Factures</h1>

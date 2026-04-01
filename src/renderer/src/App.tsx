@@ -1,12 +1,14 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import { WelcomeScreen } from '@/components/WelcomeScreen'
 import { Layout } from '@/components/Layout'
+import { SettingsPanel } from '@/components/SettingsPanel'
 import { Button } from '@/components/ui/button'
 import { CheckCircle } from 'lucide-react'
 
 function App(): React.JSX.Element {
   const { currentPdfPath, fileQueue, currentIndex, setCurrentPdfPath, sourceFolder } = useAppStore()
+  const [showSettings, setShowSettings] = useState(false)
 
   // Load PDF when current file changes
   useEffect(() => {
@@ -23,7 +25,7 @@ function App(): React.JSX.Element {
         try {
           const suggestion = await window.api.aiPreProcess(pdfPath)
           if (suggestion && !cancelled) {
-            const { setFormData } = useAppStore.getState()
+            const { setFormData, setAiExtractedSupplier } = useAppStore.getState()
             setFormData({
               ...(suggestion.accountNumber && { accountNumber: suggestion.accountNumber }),
               ...(suggestion.accountLabel && { accountLabel: suggestion.accountLabel }),
@@ -31,6 +33,17 @@ function App(): React.JSX.Element {
               ...(suggestion.fixedPart && { fixedPart: suggestion.fixedPart }),
               ...(suggestion.adjustablePart && { adjustablePart: suggestion.adjustablePart })
             })
+            // Store the raw supplier name from AI for potential mapping save
+            if (suggestion.rawText) {
+              try {
+                const parsed = JSON.parse(suggestion.rawText)
+                if (parsed.supplierName) {
+                  setAiExtractedSupplier(parsed.supplierName)
+                }
+              } catch {
+                // rawText might not be JSON
+              }
+            }
           }
         } catch {
           // AI pre-process is optional, ignore errors
@@ -43,9 +56,14 @@ function App(): React.JSX.Element {
     }
   }, [fileQueue, currentIndex, setCurrentPdfPath])
 
+  // Settings panel
+  if (showSettings) {
+    return <SettingsPanel onClose={() => setShowSettings(false)} />
+  }
+
   // Welcome screen: no source folder selected yet
   if (!sourceFolder) {
-    return <WelcomeScreen />
+    return <WelcomeScreen onOpenSettings={() => setShowSettings(true)} />
   }
 
   // All files processed
@@ -71,7 +89,7 @@ function App(): React.JSX.Element {
     )
   }
 
-  return <Layout />
+  return <Layout onOpenSettings={() => setShowSettings(true)} />
 }
 
 export default App
