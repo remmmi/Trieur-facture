@@ -9,6 +9,13 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { Check, FolderTree, Loader2 } from 'lucide-react'
 
+interface SupplierMapping {
+  invoiceName: string
+  shortName: string
+  defaultAccount: string
+  defaultAccountLabel: string
+}
+
 export function ComptaForm(): React.JSX.Element {
   const {
     currentFormData,
@@ -25,8 +32,20 @@ export function ComptaForm(): React.JSX.Element {
     aiExtractedSupplier
   } = useAppStore()
 
+  // Account autocomplete
   const [accountQuery, setAccountQuery] = useState('')
-  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showAccountSuggestions, setShowAccountSuggestions] = useState(false)
+  const accountSuggestionsRef = useRef<HTMLDivElement>(null)
+  const accountInputRef = useRef<HTMLInputElement>(null)
+
+  // Supplier autocomplete
+  const [supplierQuery, setSupplierQuery] = useState('')
+  const [showSupplierSuggestions, setShowSupplierSuggestions] = useState(false)
+  const [supplierMappings, setSupplierMappings] = useState<SupplierMapping[]>([])
+  const supplierSuggestionsRef = useRef<HTMLDivElement>(null)
+  const supplierInputRef = useRef<HTMLInputElement>(null)
+
+  // Messages & auto-learn
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [showSaveMapping, setShowSaveMapping] = useState(false)
   const [pendingSaveData, setPendingSaveData] = useState<{
@@ -35,22 +54,52 @@ export function ComptaForm(): React.JSX.Element {
     account: string
     accountLabel: string
   } | null>(null)
-  const suggestionsRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  const suggestions = useMemo(() => searchComptes(accountQuery), [accountQuery])
+  const accountSuggestions = useMemo(() => searchComptes(accountQuery), [accountQuery])
   const currentFile = fileQueue[currentIndex]
 
-  // Close suggestions when clicking outside
+  // Load supplier mappings
+  useEffect(() => {
+    window.api.getSupplierMappings().then(setSupplierMappings)
+  }, [])
+
+  // Reload mappings after saving one
+  const reloadMappings = useCallback(async () => {
+    const m = await window.api.getSupplierMappings()
+    setSupplierMappings(m)
+  }, [])
+
+  // Filter supplier suggestions
+  const supplierSuggestions = useMemo(() => {
+    if (!supplierQuery) return supplierMappings.slice(0, 10)
+    const q = supplierQuery.toLowerCase()
+    return supplierMappings.filter(
+      (m) =>
+        m.shortName.toLowerCase().includes(q) ||
+        m.invoiceName.toLowerCase().includes(q) ||
+        m.defaultAccount.startsWith(q)
+    )
+  }, [supplierQuery, supplierMappings])
+
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClick = (e: MouseEvent): void => {
+      const target = e.target as Node
       if (
-        suggestionsRef.current &&
-        !suggestionsRef.current.contains(e.target as Node) &&
-        inputRef.current &&
-        !inputRef.current.contains(e.target as Node)
+        accountSuggestionsRef.current &&
+        !accountSuggestionsRef.current.contains(target) &&
+        accountInputRef.current &&
+        !accountInputRef.current.contains(target)
       ) {
-        setShowSuggestions(false)
+        setShowAccountSuggestions(false)
+      }
+      if (
+        supplierSuggestionsRef.current &&
+        !supplierSuggestionsRef.current.contains(target) &&
+        supplierInputRef.current &&
+        !supplierInputRef.current.contains(target)
+      ) {
+        setShowSupplierSuggestions(false)
       }
     }
     document.addEventListener('mousedown', handleClick)
@@ -66,15 +115,24 @@ export function ComptaForm(): React.JSX.Element {
     return undefined
   }, [message])
 
+  // Sync supplierQuery when form fixedPart changes externally (e.g. from AI)
+  useEffect(() => {
+    if (currentFormData.fixedPart && supplierQuery !== currentFormData.fixedPart) {
+      setSupplierQuery(currentFormData.fixedPart)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFormData.fixedPart])
+
+  // --- Account handlers ---
   const handleSelectAccount = (compte: CompteComptable): void => {
     setFormData({ accountNumber: compte.numero, accountLabel: compte.libelle })
     setAccountQuery(`${compte.numero} - ${compte.libelle}`)
-    setShowSuggestions(false)
+    setShowAccountSuggestions(false)
   }
 
   const handleAccountInputChange = (value: string): void => {
     setAccountQuery(value)
-    setShowSuggestions(true)
+    setShowAccountSuggestions(true)
     const match = value.match(/^(\d+)\s*-?\s*(.*)$/)
     if (match) {
       setFormData({ accountNumber: match[1], accountLabel: match[2] || '' })
@@ -83,6 +141,29 @@ export function ComptaForm(): React.JSX.Element {
     }
   }
 
+  // --- Supplier handlers ---
+  const handleSelectSupplier = (mapping: SupplierMapping): void => {
+    setSupplierQuery(mapping.shortName)
+    setFormData({
+      fixedPart: mapping.shortName,
+      accountNumber: mapping.defaultAccount,
+      accountLabel: mapping.defaultAccountLabel
+    })
+    setAccountQuery(
+      mapping.defaultAccount
+        ? `${mapping.defaultAccount}${mapping.defaultAccountLabel ? ' - ' + mapping.defaultAccountLabel : ''}`
+        : ''
+    )
+    setShowSupplierSuggestions(false)
+  }
+
+  const handleSupplierInputChange = (value: string): void => {
+    setSupplierQuery(value)
+    setFormData({ fixedPart: value })
+    setShowSupplierSuggestions(true)
+  }
+
+  // --- Path preview ---
   const pathPreview = useMemo(() => {
     if (!destinationFolder || !currentFormData.date) return null
     const date = new Date(currentFormData.date)
@@ -94,10 +175,13 @@ export function ComptaForm(): React.JSX.Element {
       .filter(Boolean)
       .join(' - ')
     const fullFileName = fileName ? `${fileName}.pdf` : '(nom de fichier incomplet)'
-    return {
-      full: `${destinationFolder}/${year}/${month}/${fullFileName}`
-    }
-  }, [destinationFolder, currentFormData.date, currentFormData.fixedPart, currentFormData.adjustablePart])
+    return { full: `${destinationFolder}/${year}/${month}/${fullFileName}` }
+  }, [
+    destinationFolder,
+    currentFormData.date,
+    currentFormData.fixedPart,
+    currentFormData.adjustablePart
+  ])
 
   const dateLabel = currentFormData.date
     ? (() => {
@@ -114,6 +198,7 @@ export function ComptaForm(): React.JSX.Element {
     destinationFolder &&
     !isProcessing
 
+  // --- Validate ---
   const handleValidate = useCallback(async () => {
     if (!canValidate || !currentPdfPath || !destinationFolder) return
 
@@ -137,18 +222,18 @@ export function ComptaForm(): React.JSX.Element {
       if (result.success) {
         setMessage({ type: 'success', text: `Classé dans: ${result.destinationPath}` })
 
-        // Check if we should propose saving the mapping (auto-learn)
-        if (aiExtractedSupplier) {
-          // Check if mapping already exists
+        // Auto-learn: propose saving mapping if it doesn't exist yet
+        const supplierName = aiExtractedSupplier || currentFormData.fixedPart
+        if (supplierName && currentFormData.fixedPart) {
           const mappings = await window.api.getSupplierMappings()
           const exists = mappings.some(
             (m) =>
-              m.invoiceName.toLowerCase() === aiExtractedSupplier.toLowerCase() ||
-              m.shortName.toLowerCase() === currentFormData.fixedPart.toLowerCase()
+              m.shortName.toLowerCase() === currentFormData.fixedPart.toLowerCase() ||
+              m.invoiceName.toLowerCase() === supplierName.toLowerCase()
           )
-          if (!exists && currentFormData.fixedPart) {
+          if (!exists) {
             setPendingSaveData({
-              supplier: aiExtractedSupplier,
+              supplier: aiExtractedSupplier || currentFormData.fixedPart,
               shortName: currentFormData.fixedPart,
               account: currentFormData.accountNumber,
               accountLabel: currentFormData.accountLabel
@@ -157,10 +242,10 @@ export function ComptaForm(): React.JSX.Element {
           }
         }
 
-        // Remove current file and advance
         removeCurrentFile()
         resetForm()
         setAccountQuery('')
+        setSupplierQuery('')
 
         const state = useAppStore.getState()
         if (state.fileQueue.length > 0) {
@@ -202,6 +287,7 @@ export function ComptaForm(): React.JSX.Element {
     await window.api.addSupplierMapping(mapping)
     setShowSaveMapping(false)
     setPendingSaveData(null)
+    reloadMappings()
   }
 
   return (
@@ -228,7 +314,7 @@ export function ComptaForm(): React.JSX.Element {
         </div>
       )}
 
-      {/* Auto-learn: save mapping dialog */}
+      {/* Auto-learn dialog */}
       {showSaveMapping && pendingSaveData && (
         <SaveMappingDialog
           supplierName={pendingSaveData.supplier}
@@ -243,24 +329,65 @@ export function ComptaForm(): React.JSX.Element {
         />
       )}
 
+      {/* Supplier selector with autocomplete from mappings */}
+      <div className="space-y-2 relative">
+        <Label htmlFor="fixedPart">Fournisseur / tiers</Label>
+        <Input
+          id="fixedPart"
+          ref={supplierInputRef}
+          placeholder="Tapez un nom de fournisseur..."
+          value={supplierQuery}
+          onChange={(e) => handleSupplierInputChange(e.target.value)}
+          onFocus={() => {
+            if (supplierMappings.length > 0) setShowSupplierSuggestions(true)
+          }}
+          autoComplete="off"
+        />
+        {showSupplierSuggestions && supplierSuggestions.length > 0 && (
+          <div
+            ref={supplierSuggestionsRef}
+            className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-auto rounded-md border border-border bg-popover shadow-md"
+          >
+            {supplierSuggestions.map((mapping) => (
+              <button
+                key={mapping.invoiceName}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent text-left cursor-pointer"
+                onClick={() => handleSelectSupplier(mapping)}
+              >
+                <span className="font-medium min-w-[60px]">{mapping.shortName}</span>
+                <span className="text-muted-foreground truncate">{mapping.invoiceName}</span>
+                {mapping.defaultAccount && (
+                  <span className="ml-auto font-mono text-xs text-muted-foreground">
+                    {mapping.defaultAccount}
+                  </span>
+                )}
+                {currentFormData.fixedPart === mapping.shortName && (
+                  <Check className="h-3 w-3 text-success" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Account selector with autocomplete */}
       <div className="space-y-2 relative">
         <Label htmlFor="account">Compte comptable</Label>
         <Input
           id="account"
-          ref={inputRef}
+          ref={accountInputRef}
           placeholder="Tapez un numéro ou un libellé..."
           value={accountQuery}
           onChange={(e) => handleAccountInputChange(e.target.value)}
-          onFocus={() => setShowSuggestions(true)}
+          onFocus={() => setShowAccountSuggestions(true)}
           autoComplete="off"
         />
-        {showSuggestions && suggestions.length > 0 && (
+        {showAccountSuggestions && accountSuggestions.length > 0 && (
           <div
-            ref={suggestionsRef}
+            ref={accountSuggestionsRef}
             className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-auto rounded-md border border-border bg-popover shadow-md"
           >
-            {suggestions.map((compte) => (
+            {accountSuggestions.map((compte) => (
               <button
                 key={compte.numero}
                 className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent text-left cursor-pointer"
@@ -295,17 +422,6 @@ export function ComptaForm(): React.JSX.Element {
           onChange={(e) => setFormData({ date: e.target.value })}
         />
         {dateLabel && <p className="text-xs text-muted-foreground capitalize">{dateLabel}</p>}
-      </div>
-
-      {/* Fixed part */}
-      <div className="space-y-2">
-        <Label htmlFor="fixedPart">Partie fixe (fournisseur / tiers)</Label>
-        <Input
-          id="fixedPart"
-          placeholder="Ex: EDF, Orange, Loyer..."
-          value={currentFormData.fixedPart}
-          onChange={(e) => setFormData({ fixedPart: e.target.value })}
-        />
       </div>
 
       {/* Adjustable part */}
