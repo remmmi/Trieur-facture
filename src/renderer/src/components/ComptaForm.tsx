@@ -53,8 +53,9 @@ export function ComptaForm(): React.JSX.Element {
   useEffect(() => {
     if (message) {
       const timer = setTimeout(() => setMessage(null), 3000)
-      return () => clearTimeout(timer)
+      return (): void => clearTimeout(timer)
     }
+    return undefined
   }, [message])
 
   const handleSelectAccount = (compte: CompteComptable): void => {

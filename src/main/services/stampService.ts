@@ -1,5 +1,5 @@
-import { readFile, writeFile, mkdir, copyFile } from 'fs/promises'
-import { join, dirname } from 'path'
+import { readFile, writeFile, mkdir } from 'fs/promises'
+import { join } from 'path'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 
 export interface ProcessData {
