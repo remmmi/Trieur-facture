@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Key, Plus, Pencil, Trash2, Save, X, ArrowLeft } from 'lucide-react'
+import { Key, Plus, Pencil, Trash2, Save, X, ArrowLeft, Users, Settings2 } from 'lucide-react'
 
 interface SupplierMapping {
   invoiceName: string
@@ -15,7 +15,10 @@ interface SettingsPanelProps {
   onClose: () => void
 }
 
+type Tab = 'general' | 'mappings'
+
 export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Element {
+  const [activeTab, setActiveTab] = useState<Tab>('general')
   const [apiKey, setApiKey] = useState('')
   const [apiKeyDisplay, setApiKeyDisplay] = useState('')
   const [apiKeySaved, setApiKeySaved] = useState(false)
@@ -83,6 +86,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     setEditForm({ invoiceName: '', shortName: '', defaultAccount: '', defaultAccountLabel: '' })
   }
 
+  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'general', label: 'Général', icon: <Settings2 className="h-4 w-4" /> },
+    { id: 'mappings', label: 'Fournisseurs', icon: <Users className="h-4 w-4" /> }
+  ]
+
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
@@ -93,228 +101,209 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         <h1 className="text-lg font-semibold">Paramètres</h1>
       </div>
 
-      <div className="flex-1 overflow-auto p-6 space-y-8 max-w-3xl mx-auto w-full">
-        {/* API Key Section */}
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Key className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-base font-semibold">Clé API Anthropic (Claude)</h2>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Nécessaire pour l'extraction automatique des données de facture via Claude Sonnet 4.
-          </p>
-          <div className="flex gap-2">
-            <Input
-              type="password"
-              placeholder={apiKeyDisplay || 'sk-ant-...'}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              className="font-mono"
-            />
-            <Button onClick={handleSaveApiKey} disabled={!apiKey.trim()}>
-              {apiKeySaved ? 'Sauvegardé !' : 'Sauvegarder'}
-            </Button>
-          </div>
-          {apiKeyDisplay && (
-            <p className="text-xs text-muted-foreground font-mono">
-              Clé actuelle : {apiKeyDisplay}
-            </p>
-          )}
-        </section>
+      {/* Tabs */}
+      <div className="flex border-b border-border px-4">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
+              activeTab === tab.id
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Supplier Mappings Section */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">Mapping fournisseurs</h2>
-            <Button variant="outline" size="sm" onClick={startAdding}>
-              <Plus className="h-3 w-3 mr-1" />
-              Ajouter
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Associez un nom de fournisseur (tel qu'il apparaît sur les factures) à un nom court pour
-            le fichier et un compte comptable par défaut.
-          </p>
-
-          {/* Add form */}
-          {isAdding && (
-            <div className="rounded-md border border-border p-4 space-y-3 bg-muted/30">
-              <h3 className="text-sm font-medium">Nouveau mapping</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Nom sur la facture</Label>
-                  <Input
-                    placeholder="EDF Entreprises SA"
-                    value={editForm.invoiceName}
-                    onChange={(e) => setEditForm({ ...editForm, invoiceName: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Nom court (fichier)</Label>
-                  <Input
-                    placeholder="EDF"
-                    value={editForm.shortName}
-                    onChange={(e) => setEditForm({ ...editForm, shortName: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Compte comptable</Label>
-                  <Input
-                    placeholder="6061"
-                    value={editForm.defaultAccount}
-                    onChange={(e) => setEditForm({ ...editForm, defaultAccount: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Libellé du compte</Label>
-                  <Input
-                    placeholder="Fournitures non stockables"
-                    value={editForm.defaultAccountLabel}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, defaultAccountLabel: e.target.value })
-                    }
-                  />
-                </div>
+      {/* Tab content */}
+      <div className="flex-1 overflow-auto p-6 max-w-3xl mx-auto w-full">
+        {activeTab === 'general' && (
+          <div className="space-y-8">
+            {/* API Key */}
+            <section className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Key className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-base font-semibold">Clé API Anthropic (Claude)</h2>
               </div>
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsAdding(false)}
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Annuler
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleAddMapping}
-                  disabled={!editForm.invoiceName || !editForm.shortName}
-                >
-                  <Save className="h-3 w-3 mr-1" />
-                  Enregistrer
+              <p className="text-sm text-muted-foreground">
+                Nécessaire pour l'extraction automatique des données de facture via Claude Sonnet 4.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  type="password"
+                  placeholder={apiKeyDisplay || 'sk-ant-...'}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="font-mono"
+                />
+                <Button onClick={handleSaveApiKey} disabled={!apiKey.trim()}>
+                  {apiKeySaved ? 'Sauvegardé !' : 'Sauvegarder'}
                 </Button>
               </div>
-            </div>
-          )}
+              {apiKeyDisplay && (
+                <p className="text-xs text-muted-foreground font-mono">
+                  Clé actuelle : {apiKeyDisplay}
+                </p>
+              )}
+            </section>
+          </div>
+        )}
 
-          {/* Mappings list */}
-          {mappings.length === 0 && !isAdding ? (
-            <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              Aucun mapping configuré. Les mappings seront proposés automatiquement lors du
-              traitement des factures.
+        {activeTab === 'mappings' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-semibold">Mapping fournisseurs</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Associez un nom de fournisseur à un nom court et un compte comptable par défaut.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" onClick={startAdding}>
+                <Plus className="h-3 w-3 mr-1" />
+                Ajouter
+              </Button>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {mappings.map((mapping, index) => (
-                <div
-                  key={mapping.invoiceName}
-                  className="rounded-md border border-border p-3"
-                >
-                  {editingIndex === index ? (
-                    // Editing mode
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Nom sur la facture</Label>
-                          <Input
-                            value={editForm.invoiceName}
-                            onChange={(e) =>
-                              setEditForm({ ...editForm, invoiceName: e.target.value })
-                            }
-                          />
+
+            {/* Add form */}
+            {isAdding && (
+              <MappingForm
+                form={editForm}
+                onChange={setEditForm}
+                onSave={handleAddMapping}
+                onCancel={() => setIsAdding(false)}
+                title="Nouveau mapping"
+              />
+            )}
+
+            {/* List */}
+            {mappings.length === 0 && !isAdding ? (
+              <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                Aucun mapping configuré. Les mappings seront proposés automatiquement lors du
+                traitement des factures.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {mappings.map((mapping, index) => (
+                  <div key={mapping.invoiceName} className="rounded-md border border-border p-3">
+                    {editingIndex === index ? (
+                      <MappingForm
+                        form={editForm}
+                        onChange={setEditForm}
+                        onSave={() => handleUpdateMapping(mapping.invoiceName)}
+                        onCancel={() => setEditingIndex(null)}
+                        title="Modifier"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 grid grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <span className="text-xs text-muted-foreground block">Facture</span>
+                            <span className="truncate block">{mapping.invoiceName}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground block">Fichier</span>
+                            <span className="font-medium">{mapping.shortName}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground block">Compte</span>
+                            <span className="font-mono">{mapping.defaultAccount || '—'}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs text-muted-foreground block">Libellé</span>
+                            <span className="truncate block">
+                              {mapping.defaultAccountLabel || '—'}
+                            </span>
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Nom court (fichier)</Label>
-                          <Input
-                            value={editForm.shortName}
-                            onChange={(e) =>
-                              setEditForm({ ...editForm, shortName: e.target.value })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Compte comptable</Label>
-                          <Input
-                            value={editForm.defaultAccount}
-                            onChange={(e) =>
-                              setEditForm({ ...editForm, defaultAccount: e.target.value })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Libellé du compte</Label>
-                          <Input
-                            value={editForm.defaultAccountLabel}
-                            onChange={(e) =>
-                              setEditForm({ ...editForm, defaultAccountLabel: e.target.value })
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setEditingIndex(null)}
-                        >
-                          <X className="h-3 w-3 mr-1" />
-                          Annuler
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => handleUpdateMapping(mapping.invoiceName)}
-                        >
-                          <Save className="h-3 w-3 mr-1" />
-                          Sauvegarder
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    // Display mode
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 grid grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <span className="text-xs text-muted-foreground block">Facture</span>
-                          <span className="truncate block">{mapping.invoiceName}</span>
-                        </div>
-                        <div>
-                          <span className="text-xs text-muted-foreground block">Fichier</span>
-                          <span className="font-medium">{mapping.shortName}</span>
-                        </div>
-                        <div>
-                          <span className="text-xs text-muted-foreground block">Compte</span>
-                          <span className="font-mono">{mapping.defaultAccount || '—'}</span>
-                        </div>
-                        <div>
-                          <span className="text-xs text-muted-foreground block">Libellé</span>
-                          <span className="truncate block">
-                            {mapping.defaultAccountLabel || '—'}
-                          </span>
+                        <div className="flex gap-1 ml-3">
+                          <Button variant="ghost" size="icon" onClick={() => startEditing(index)}>
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteMapping(mapping.invoiceName)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex gap-1 ml-3">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => startEditing(index)}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteMapping(mapping.invoiceName)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Sous-composant réutilisable pour le formulaire d'ajout/édition de mapping */
+function MappingForm({
+  form,
+  onChange,
+  onSave,
+  onCancel,
+  title
+}: {
+  form: SupplierMapping
+  onChange: (f: SupplierMapping) => void
+  onSave: () => void
+  onCancel: () => void
+  title: string
+}): React.JSX.Element {
+  return (
+    <div className="space-y-3 bg-muted/30 rounded-md p-4 border border-border">
+      <h3 className="text-sm font-medium">{title}</h3>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1">
+          <Label className="text-xs">Nom sur la facture</Label>
+          <Input
+            placeholder="EDF Entreprises SA"
+            value={form.invoiceName}
+            onChange={(e) => onChange({ ...form, invoiceName: e.target.value })}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Nom court (fichier)</Label>
+          <Input
+            placeholder="EDF"
+            value={form.shortName}
+            onChange={(e) => onChange({ ...form, shortName: e.target.value })}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Compte comptable</Label>
+          <Input
+            placeholder="6061"
+            value={form.defaultAccount}
+            onChange={(e) => onChange({ ...form, defaultAccount: e.target.value })}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Libellé du compte</Label>
+          <Input
+            placeholder="Fournitures non stockables"
+            value={form.defaultAccountLabel}
+            onChange={(e) => onChange({ ...form, defaultAccountLabel: e.target.value })}
+          />
+        </div>
+      </div>
+      <div className="flex gap-2 justify-end">
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          <X className="h-3 w-3 mr-1" />
+          Annuler
+        </Button>
+        <Button size="sm" onClick={onSave} disabled={!form.invoiceName || !form.shortName}>
+          <Save className="h-3 w-3 mr-1" />
+          Enregistrer
+        </Button>
       </div>
     </div>
   )
