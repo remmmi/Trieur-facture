@@ -1,8 +1,12 @@
 import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, ChevronRight, FolderOpen } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FolderOpen, Settings } from 'lucide-react'
 
-export function FileQueue(): React.JSX.Element {
+interface FileQueueProps {
+  onOpenSettings: () => void
+}
+
+export function FileQueue({ onOpenSettings }: FileQueueProps): React.JSX.Element {
   const { fileQueue, currentIndex, nextFile, prevFile, sourceFolder } = useAppStore()
 
   const currentFile = fileQueue[currentIndex]
@@ -34,8 +38,13 @@ export function FileQueue(): React.JSX.Element {
         </Button>
       </div>
 
-      <div className="text-sm text-muted-foreground truncate max-w-[300px]">
-        {currentFile ? currentFile.name : ''}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground truncate max-w-[250px]">
+          {currentFile ? currentFile.name : ''}
+        </span>
+        <Button variant="ghost" size="icon" onClick={onOpenSettings}>
+          <Settings className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   )

@@ -2,10 +2,14 @@ import { PdfPreview } from './PdfPreview'
 import { ComptaForm } from './ComptaForm'
 import { FileQueue } from './FileQueue'
 
-export function Layout(): React.JSX.Element {
+interface LayoutProps {
+  onOpenSettings: () => void
+}
+
+export function Layout({ onOpenSettings }: LayoutProps): React.JSX.Element {
   return (
     <div className="flex flex-col h-screen">
-      <FileQueue />
+      <FileQueue onOpenSettings={onOpenSettings} />
       <div className="flex flex-1 min-h-0">
         <div className="w-[60%] border-r border-border p-4 overflow-auto">
           <PdfPreview />
