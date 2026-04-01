@@ -50,6 +50,10 @@ interface AppState {
   // Processing state
   isProcessing: boolean
   setIsProcessing: (value: boolean) => void
+
+  // AI extracted supplier name (for auto-learn mapping)
+  aiExtractedSupplier: string | null
+  setAiExtractedSupplier: (name: string | null) => void
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -85,11 +89,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       currentFormData: { ...state.currentFormData, ...data }
     })),
-  resetForm: () => set({ currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) } }),
+  resetForm: () =>
+    set({
+      currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) },
+      aiExtractedSupplier: null
+    }),
 
   currentPdfPath: null,
   setCurrentPdfPath: (path) => set({ currentPdfPath: path }),
 
   isProcessing: false,
-  setIsProcessing: (value) => set({ isProcessing: value })
+  setIsProcessing: (value) => set({ isProcessing: value }),
+
+  aiExtractedSupplier: null,
+  setAiExtractedSupplier: (name) => set({ aiExtractedSupplier: name })
 }))

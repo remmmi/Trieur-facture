@@ -3,6 +3,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { SaveMappingDialog } from '@/components/SaveMappingDialog'
 import { searchComptes, type CompteComptable } from '@/data/planComptable'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -20,17 +21,24 @@ export function ComptaForm(): React.JSX.Element {
     removeCurrentFile,
     resetForm,
     currentPdfPath,
-    setCurrentPdfPath
+    setCurrentPdfPath,
+    aiExtractedSupplier
   } = useAppStore()
 
   const [accountQuery, setAccountQuery] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [showSaveMapping, setShowSaveMapping] = useState(false)
+  const [pendingSaveData, setPendingSaveData] = useState<{
+    supplier: string
+    shortName: string
+    account: string
+    accountLabel: string
+  } | null>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const suggestions = useMemo(() => searchComptes(accountQuery), [accountQuery])
-
   const currentFile = fileQueue[currentIndex]
 
   // Close suggestions when clicking outside
@@ -75,7 +83,6 @@ export function ComptaForm(): React.JSX.Element {
     }
   }
 
-  // Build the destination path preview
   const pathPreview = useMemo(() => {
     if (!destinationFolder || !currentFormData.date) return null
     const date = new Date(currentFormData.date)
@@ -83,15 +90,11 @@ export function ComptaForm(): React.JSX.Element {
 
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
-
     const fileName = [currentFormData.fixedPart, currentFormData.adjustablePart]
       .filter(Boolean)
       .join(' - ')
-
     const fullFileName = fileName ? `${fileName}.pdf` : '(nom de fichier incomplet)'
     return {
-      folder: `${destinationFolder}/${year}/${month}/`,
-      fileName: fullFileName,
       full: `${destinationFolder}/${year}/${month}/${fullFileName}`
     }
   }, [destinationFolder, currentFormData.date, currentFormData.fixedPart, currentFormData.adjustablePart])
@@ -134,12 +137,31 @@ export function ComptaForm(): React.JSX.Element {
       if (result.success) {
         setMessage({ type: 'success', text: `Classé dans: ${result.destinationPath}` })
 
-        // Remove current file from queue and reset form
+        // Check if we should propose saving the mapping (auto-learn)
+        if (aiExtractedSupplier) {
+          // Check if mapping already exists
+          const mappings = await window.api.getSupplierMappings()
+          const exists = mappings.some(
+            (m) =>
+              m.invoiceName.toLowerCase() === aiExtractedSupplier.toLowerCase() ||
+              m.shortName.toLowerCase() === currentFormData.fixedPart.toLowerCase()
+          )
+          if (!exists && currentFormData.fixedPart) {
+            setPendingSaveData({
+              supplier: aiExtractedSupplier,
+              shortName: currentFormData.fixedPart,
+              account: currentFormData.accountNumber,
+              accountLabel: currentFormData.accountLabel
+            })
+            setShowSaveMapping(true)
+          }
+        }
+
+        // Remove current file and advance
         removeCurrentFile()
         resetForm()
         setAccountQuery('')
 
-        // Load next file's PDF if available
         const state = useAppStore.getState()
         if (state.fileQueue.length > 0) {
           const nextFile = state.fileQueue[state.currentIndex]
@@ -159,7 +181,28 @@ export function ComptaForm(): React.JSX.Element {
     } finally {
       setIsProcessing(false)
     }
-  }, [canValidate, currentPdfPath, destinationFolder, currentFormData, removeCurrentFile, resetForm, setCurrentPdfPath, setIsProcessing])
+  }, [
+    canValidate,
+    currentPdfPath,
+    destinationFolder,
+    currentFormData,
+    aiExtractedSupplier,
+    removeCurrentFile,
+    resetForm,
+    setCurrentPdfPath,
+    setIsProcessing
+  ])
+
+  const handleSaveMapping = async (mapping: {
+    invoiceName: string
+    shortName: string
+    defaultAccount: string
+    defaultAccountLabel: string
+  }): Promise<void> => {
+    await window.api.addSupplierMapping(mapping)
+    setShowSaveMapping(false)
+    setPendingSaveData(null)
+  }
 
   return (
     <div className="space-y-5">
@@ -185,6 +228,21 @@ export function ComptaForm(): React.JSX.Element {
         </div>
       )}
 
+      {/* Auto-learn: save mapping dialog */}
+      {showSaveMapping && pendingSaveData && (
+        <SaveMappingDialog
+          supplierName={pendingSaveData.supplier}
+          shortName={pendingSaveData.shortName}
+          accountNumber={pendingSaveData.account}
+          accountLabel={pendingSaveData.accountLabel}
+          onSave={handleSaveMapping}
+          onDismiss={() => {
+            setShowSaveMapping(false)
+            setPendingSaveData(null)
+          }}
+        />
+      )}
+
       {/* Account selector with autocomplete */}
       <div className="space-y-2 relative">
         <Label htmlFor="account">Compte comptable</Label>
@@ -208,7 +266,9 @@ export function ComptaForm(): React.JSX.Element {
                 className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent text-left cursor-pointer"
                 onClick={() => handleSelectAccount(compte)}
               >
-                <span className="font-mono font-medium text-primary min-w-[50px]">{compte.numero}</span>
+                <span className="font-mono font-medium text-primary min-w-[50px]">
+                  {compte.numero}
+                </span>
                 <span className="text-muted-foreground truncate">{compte.libelle}</span>
                 {currentFormData.accountNumber === compte.numero && (
                   <Check className="h-3 w-3 ml-auto text-success" />
@@ -250,7 +310,7 @@ export function ComptaForm(): React.JSX.Element {
 
       {/* Adjustable part */}
       <div className="space-y-2">
-        <Label htmlFor="adjustablePart">Partie ajustable (n de facture, mois...)</Label>
+        <Label htmlFor="adjustablePart">Partie ajustable (n° de facture, mois...)</Label>
         <Input
           id="adjustablePart"
           placeholder="Ex: FAC-2026-001, Janvier..."
