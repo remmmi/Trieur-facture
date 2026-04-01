@@ -1,12 +1,14 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// Custom APIs for renderer
-const api = {}
+const api = {
+  selectFolder: (): Promise<string | null> => ipcRenderer.invoke('select-folder'),
+  scanFolder: (folderPath: string): Promise<unknown[]> => ipcRenderer.invoke('scan-folder', folderPath),
+  selectDestinationFolder: (): Promise<string | null> => ipcRenderer.invoke('select-destination-folder'),
+  ensurePdf: (filePath: string): Promise<string> => ipcRenderer.invoke('ensure-pdf', filePath),
+  readFile: (filePath: string): Promise<Uint8Array> => ipcRenderer.invoke('read-file', filePath)
+}
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
