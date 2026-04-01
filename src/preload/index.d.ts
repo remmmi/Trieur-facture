@@ -62,6 +62,10 @@ export interface Api {
   addSupplierMapping: (mapping: SupplierMapping) => Promise<boolean>
   removeSupplierMapping: (invoiceName: string) => Promise<boolean>
   updateSupplierMapping: (oldInvoiceName: string, mapping: SupplierMapping) => Promise<boolean>
+
+  // Persisted folders
+  getLastFolders: () => Promise<{ source: string | null; destination: string | null }>
+  setLastFolders: (source: string | null, destination: string | null) => Promise<boolean>
 }
 
 declare global {
