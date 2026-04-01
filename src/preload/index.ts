@@ -28,7 +28,13 @@ const api = {
   removeSupplierMapping: (invoiceName: string): Promise<boolean> =>
     ipcRenderer.invoke('remove-supplier-mapping', invoiceName),
   updateSupplierMapping: (oldInvoiceName: string, mapping: unknown): Promise<boolean> =>
-    ipcRenderer.invoke('update-supplier-mapping', oldInvoiceName, mapping)
+    ipcRenderer.invoke('update-supplier-mapping', oldInvoiceName, mapping),
+
+  // Persisted folders
+  getLastFolders: (): Promise<{ source: string | null; destination: string | null }> =>
+    ipcRenderer.invoke('get-last-folders'),
+  setLastFolders: (source: string | null, destination: string | null): Promise<boolean> =>
+    ipcRenderer.invoke('set-last-folders', source, destination)
 }
 
 if (process.contextIsolated) {

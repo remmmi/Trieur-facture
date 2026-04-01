@@ -12,6 +12,8 @@ import {
   findSupplierMapping,
   getApiKey,
   setApiKey,
+  getLastFolders,
+  setLastFolders,
   type SupplierMapping
 } from './services/supplierMappingService'
 
@@ -97,6 +99,17 @@ export async function registerIpcHandlers(): Promise<void> {
     'update-supplier-mapping',
     async (_event, oldInvoiceName: string, mapping: SupplierMapping) => {
       await updateSupplierMapping(oldInvoiceName, mapping)
+      return true
+    }
+  )
+
+  // --- Persisted folders ---
+  ipcMain.handle('get-last-folders', async () => getLastFolders())
+
+  ipcMain.handle(
+    'set-last-folders',
+    async (_event, source: string | null, destination: string | null) => {
+      await setLastFolders(source, destination)
       return true
     }
   )

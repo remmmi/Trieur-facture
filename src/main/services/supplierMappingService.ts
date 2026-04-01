@@ -16,11 +16,15 @@ export interface SupplierMapping {
 export interface AppConfig {
   anthropicApiKey: string
   supplierMappings: SupplierMapping[]
+  lastSourceFolder: string | null
+  lastDestinationFolder: string | null
 }
 
 const DEFAULT_CONFIG: AppConfig = {
   anthropicApiKey: '',
-  supplierMappings: []
+  supplierMappings: [],
+  lastSourceFolder: null,
+  lastDestinationFolder: null
 }
 
 function getConfigPath(): string {
@@ -121,5 +125,26 @@ export async function getApiKey(): Promise<string> {
 export async function setApiKey(apiKey: string): Promise<void> {
   const config = await loadConfig()
   config.anthropicApiKey = apiKey
+  await saveConfig(config)
+}
+
+export async function getLastFolders(): Promise<{
+  source: string | null
+  destination: string | null
+}> {
+  const config = await loadConfig()
+  return {
+    source: config.lastSourceFolder ?? null,
+    destination: config.lastDestinationFolder ?? null
+  }
+}
+
+export async function setLastFolders(
+  source: string | null,
+  destination: string | null
+): Promise<void> {
+  const config = await loadConfig()
+  config.lastSourceFolder = source
+  config.lastDestinationFolder = destination
   await saveConfig(config)
 }
