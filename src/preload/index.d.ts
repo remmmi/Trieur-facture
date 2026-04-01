@@ -16,13 +16,29 @@ export interface ProcessData {
   fileName: string
 }
 
+export interface ProcessResult {
+  success: boolean
+  destinationPath: string
+}
+
+export interface AiSuggestion {
+  accountNumber?: string
+  accountLabel?: string
+  date?: string
+  fixedPart?: string
+  adjustablePart?: string
+  confidence?: number
+  rawText?: string
+}
+
 export interface Api {
   selectFolder: () => Promise<string | null>
   scanFolder: (folderPath: string) => Promise<FileInfo[]>
   selectDestinationFolder: () => Promise<string | null>
   ensurePdf: (filePath: string) => Promise<string>
-  processDocument: (data: ProcessData) => Promise<{ success: boolean; destinationPath: string }>
   readFile: (filePath: string) => Promise<Uint8Array>
+  processDocument: (data: ProcessData) => Promise<ProcessResult>
+  aiPreProcess: (pdfPath: string) => Promise<AiSuggestion | null>
 }
 
 declare global {
