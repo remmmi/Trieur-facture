@@ -4,9 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-      - 'beta-*'
-    branches:
-      - 'release/**'
 
 jobs:
   build-windows:
@@ -33,19 +30,6 @@ jobs:
       - name: Package for Windows
         run: npx electron-builder --win --publish never
 
-      - name: Determine version tag
-        id: version
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-            echo "is_prerelease=${{ startsWith(github.ref_name, 'beta') }}" >> "$GITHUB_OUTPUT"
-          elif [[ "$GITHUB_REF" == refs/heads/release/* ]]; then
-            TAG_NAME="${GITHUB_REF#refs/heads/release/}"
-            echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
-            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -53,13 +37,11 @@ jobs:
           path: dist/*.exe
 
       - name: Create GitHub Release
-        if: steps.version.outputs.tag != ''
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           files: dist/*.exe
           draft: false
-          prerelease: ${{ steps.version.outputs.is_prerelease == 'true' }}
+          prerelease: ${{ startsWith(github.ref_name, 'v0.') }}
           generate_release_notes: true
-          target_commitish: ${{ github.sha }}
