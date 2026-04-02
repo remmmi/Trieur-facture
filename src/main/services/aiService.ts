@@ -14,16 +14,21 @@ export function isAiConfigured(): boolean {
 
 const EXTRACTION_PROMPT = `Tu es un assistant comptable expert. Analyse cette facture/document et extrais les informations suivantes au format JSON strict.
 
-Réponds UNIQUEMENT avec le JSON, sans markdown, sans commentaire.
+Reponds UNIQUEMENT avec le JSON, sans markdown, sans commentaire.
 
 {
-  "supplierName": "Le nom complet du fournisseur tel qu'il apparaît sur le document",
-  "invoiceNumber": "Le numéro de facture",
-  "date": "La date du document au format YYYY-MM-DD",
-  "totalHT": "Le montant HT",
-  "totalTTC": "Le montant TTC",
+  "supplierName": "Le nom de l'enseigne ou du fournisseur (ex: LEROY MERLIN, CARREFOUR, etc.)",
+  "invoiceNumber": "Le numero de facture ou de ticket. Voir regles ci-dessous.",
+  "date": "La date du document au format YYYY-MM-DD. Chercher dans l'en-tete, le pied de page, ou pres du code-barres.",
+  "totalHT": "Le montant HT (souvent apres la mention HT ou dans le recapitulatif TVA)",
+  "totalTTC": "Le montant TTC final paye (le TOTAL en gras, ou le montant CB/paiement)",
   "tvaAmount": "Le montant de TVA"
 }
+
+REGLES pour invoiceNumber :
+- Si c'est un ticket de caisse (reconnaissable a : format etroit/vertical, liste d'articles avec prix unitaires, codes EAN/barres, sous-totaux, mention "carte bancaire"/"CB", ticket commercant, etc.) alors mets "ticket-caisse" dans invoiceNumber.
+- Si c'est une facture classique avec un numero (FAC-xxx, N° xxx, etc.) mets ce numero.
+- S'il y a un numero de BVI, BVA ou numero de transaction, c'est un ticket de caisse.
 
 Si un champ n'est pas visible ou lisible, mets null.`
 
@@ -62,15 +67,50 @@ export async function extractInvoiceData(pdfPath: string): Promise<AiSuggestion 
     if (!textBlock || textBlock.type !== 'text') return null
 
     const parsed = JSON.parse(textBlock.text)
+    console.log('[AI] Parsed result:', JSON.stringify(parsed))
 
     return {
       date: parsed.date || undefined,
       fixedPart: parsed.supplierName || undefined,
       adjustablePart: parsed.invoiceNumber || undefined,
+      amount: parsed.totalTTC || undefined,
       rawText: textBlock.text
     }
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('AI extraction error:', err)
+
+    const error = err as { status?: number; message?: string; error?: { type?: string } }
+
+    // Credit exhausted
+    if (
+      error.status === 400 &&
+      error.error?.type === 'invalid_request_error' &&
+      error.message?.includes('credit')
+    ) {
+      throw new Error('AI_NO_CREDIT')
+    }
+    if (error.status === 429) {
+      throw new Error('AI_RATE_LIMIT')
+    }
+    // Auth errors
+    if (error.status === 401) {
+      throw new Error('AI_AUTH_ERROR')
+    }
+    // Network / unreachable
+    if (
+      error.message?.includes('fetch') ||
+      error.message?.includes('ENOTFOUND') ||
+      error.message?.includes('ECONNREFUSED') ||
+      error.message?.includes('network')
+    ) {
+      throw new Error('AI_NETWORK_ERROR')
+    }
+    // Other API errors
+    if (error.status && error.status >= 400) {
+      throw new Error('AI_API_ERROR')
+    }
+
+    // JSON parse or other non-API errors: return null silently
     return null
   }
 }

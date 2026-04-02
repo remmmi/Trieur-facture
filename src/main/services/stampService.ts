@@ -1,6 +1,6 @@
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib'
 
 export interface ProcessData {
   sourcePath: string
@@ -9,6 +9,10 @@ export interface ProcessData {
   date: string
   baseFolder: string
   fileName: string
+  stampX: number
+  stampY: number
+  stampRotation: number
+  customDest?: boolean
 }
 
 export interface ProcessResult {
@@ -17,13 +21,29 @@ export interface ProcessResult {
 }
 
 export async function processDocument(data: ProcessData): Promise<ProcessResult> {
-  const { sourcePath, accountNumber, accountLabel, date, baseFolder, fileName } = data
+  const {
+    sourcePath,
+    accountNumber,
+    accountLabel,
+    date,
+    baseFolder,
+    fileName,
+    stampX,
+    stampY,
+    stampRotation,
+    customDest
+  } = data
 
-  // 1. Build destination path based on date
-  const dateObj = new Date(date)
-  const year = dateObj.getFullYear()
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0')
-  const destFolder = join(baseFolder, String(year), month)
+  // 1. Build destination path
+  let destFolder: string
+  if (customDest) {
+    destFolder = baseFolder
+  } else {
+    const dateObj = new Date(date)
+    const year = dateObj.getFullYear()
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+    destFolder = join(baseFolder, String(year), month)
+  }
   await mkdir(destFolder, { recursive: true })
 
   const destPath = join(destFolder, `${fileName}.pdf`)
@@ -31,35 +51,56 @@ export async function processDocument(data: ProcessData): Promise<ProcessResult>
   // 2. Stamp the PDF
   const pdfBytes = await readFile(sourcePath)
   const pdfDoc = await PDFDocument.load(pdfBytes)
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const firstPage = pdfDoc.getPages()[0]
 
   const stampText = `${accountNumber}${accountLabel ? ' - ' + accountLabel : ''}`
-  const fontSize = 10
-  const textWidth = font.widthOfTextAtSize(stampText, fontSize)
   const { width: pageWidth, height: pageHeight } = firstPage.getSize()
 
-  // Draw stamp background (white rect) + text in top-right corner
-  const margin = 10
+  // Scale font size relative to page width (readable on both A4 and receipts)
+  const fontSize = Math.max(8, Math.min(12, pageWidth / 30))
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+  const textWidth = boldFont.widthOfTextAtSize(stampText, fontSize)
   const padding = 4
-  const x = pageWidth - textWidth - margin - padding * 2
-  const y = pageHeight - fontSize - margin - padding
 
+  // Position from ratios (stampX/stampY are 0-1 ratios, Y is inverted: 0=top in canvas, but bottom in PDF)
+  const boxW = textWidth + padding * 2
+  const boxH = fontSize + padding * 2
+  const x = Math.max(0, Math.min(stampX * pageWidth, pageWidth - boxW))
+  const y = Math.max(0, Math.min(pageHeight - stampY * pageHeight - boxH, pageHeight - boxH))
+
+  // Rotation around the center of the stamp
+  const rot = degrees(-stampRotation)
+  const centerX = x + boxW / 2
+  const centerY = y + boxH / 2
+  const rad = (-stampRotation * Math.PI) / 180
+
+  // pdf-lib drawRectangle rotates around the rectangle's own center
   firstPage.drawRectangle({
     x,
-    y: y - padding,
-    width: textWidth + padding * 2,
-    height: fontSize + padding * 2,
+    y,
+    width: boxW,
+    height: boxH,
     color: rgb(1, 1, 1),
-    opacity: 0.85
+    opacity: 0.9,
+    borderColor: rgb(0.6, 0.6, 0.6),
+    borderWidth: 0.5,
+    rotate: rot
   })
 
+  // pdf-lib drawText rotates around (x, y), so compute text position
+  // relative to the stamp center then rotate
+  const localTx = padding - boxW / 2
+  const localTy = padding - boxH / 2
+  const textX = centerX + localTx * Math.cos(rad) - localTy * Math.sin(rad)
+  const textY = centerY + localTx * Math.sin(rad) + localTy * Math.cos(rad)
+
   firstPage.drawText(stampText, {
-    x: x + padding,
-    y,
+    x: textX,
+    y: textY,
     size: fontSize,
-    font,
-    color: rgb(0.1, 0.1, 0.8)
+    font: boldFont,
+    color: rgb(0.8, 0, 0),
+    rotate: rot
   })
 
   // 3. Save stamped PDF
@@ -82,6 +123,7 @@ export interface AiSuggestion {
   date?: string
   fixedPart?: string
   adjustablePart?: string
+  amount?: string
   confidence?: number
   rawText?: string
 }

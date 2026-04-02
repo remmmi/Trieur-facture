@@ -13,6 +13,7 @@ export interface FormData {
   date: string
   fixedPart: string
   adjustablePart: string
+  amount: string
 }
 
 const defaultFormData: FormData = {
@@ -20,7 +21,8 @@ const defaultFormData: FormData = {
   accountLabel: '',
   date: new Date().toISOString().slice(0, 10),
   fixedPart: '',
-  adjustablePart: ''
+  adjustablePart: '',
+  amount: ''
 }
 
 interface AppState {
@@ -48,8 +50,19 @@ interface AppState {
   setCurrentPdfPath: (path: string | null) => void
 
   // Processing state
+  hasStarted: boolean
+  setHasStarted: (value: boolean) => void
   isProcessing: boolean
   setIsProcessing: (value: boolean) => void
+  aiProcessing: boolean
+  setAiProcessing: (value: boolean) => void
+
+  // Stamp position (ratio 0-1 relative to page size) and rotation (degrees)
+  stampX: number
+  stampY: number
+  stampRotation: number
+  setStampPosition: (x: number, y: number) => void
+  setStampRotation: (degrees: number) => void
 
   // AI extracted supplier name (for auto-learn mapping)
   aiExtractedSupplier: string | null
@@ -98,8 +111,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentPdfPath: null,
   setCurrentPdfPath: (path) => set({ currentPdfPath: path }),
 
+  hasStarted: false,
+  setHasStarted: (value) => set({ hasStarted: value }),
+
   isProcessing: false,
   setIsProcessing: (value) => set({ isProcessing: value }),
+
+  aiProcessing: false,
+  setAiProcessing: (value) => set({ aiProcessing: value }),
+
+  stampX: 0,
+  stampY: 0,
+  stampRotation: 0,
+  setStampPosition: (x, y) => set({ stampX: x, stampY: y }),
+  setStampRotation: (degrees) => set({ stampRotation: degrees }),
 
   aiExtractedSupplier: null,
   setAiExtractedSupplier: (name) => set({ aiExtractedSupplier: name })

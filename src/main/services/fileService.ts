@@ -11,15 +11,20 @@ export interface FileInfo {
 
 const SUPPORTED_EXTENSIONS = ['.pdf', '.doc', '.docx']
 
+let lastSourcePath: string | undefined
+let lastDestPath: string | undefined
+
 export async function selectFolder(): Promise<string | null> {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],
-    title: 'Sélectionner le dossier contenant les factures'
+    title: 'Sélectionner le dossier contenant les factures',
+    defaultPath: lastSourcePath ?? lastDestPath
   })
   if (result.canceled || result.filePaths.length === 0) {
     return null
   }
-  return result.filePaths[0]
+  lastSourcePath = result.filePaths[0]
+  return lastSourcePath
 }
 
 export async function scanFolder(folderPath: string): Promise<FileInfo[]> {
@@ -48,10 +53,17 @@ export async function scanFolder(folderPath: string): Promise<FileInfo[]> {
 export async function selectDestinationFolder(): Promise<string | null> {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],
-    title: 'Sélectionner le dossier racine de destination (comptabilité)'
+    title: 'Sélectionner le dossier racine de destination (comptabilité)',
+    defaultPath: lastDestPath ?? lastSourcePath
   })
   if (result.canceled || result.filePaths.length === 0) {
     return null
   }
-  return result.filePaths[0]
+  lastDestPath = result.filePaths[0]
+  return lastDestPath
+}
+
+export function setLastPaths(source: string | null, dest: string | null): void {
+  if (source) lastSourcePath = source
+  if (dest) lastDestPath = dest
 }

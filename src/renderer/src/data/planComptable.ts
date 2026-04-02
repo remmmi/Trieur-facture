@@ -109,10 +109,31 @@ const csvData = `101,Capital social
 786,Reprises sur provisions - Produits financiers
 787,Reprises sur provisions - Produits exceptionnels`
 
-export const planComptable: CompteComptable[] = csvData.split('\n').map((line) => {
+const defaultPlan: CompteComptable[] = csvData.split('\n').map((line) => {
   const [numero, ...rest] = line.split(',')
   return { numero: numero.trim(), libelle: rest.join(',').trim() }
 })
+
+let planComptable: CompteComptable[] = defaultPlan
+
+export { planComptable }
+
+export async function loadPlanComptable(): Promise<void> {
+  const custom = await window.api.getPlanComptable()
+  if (custom && custom.length > 0) {
+    planComptable = custom
+  } else {
+    planComptable = defaultPlan
+  }
+}
+
+export function setPlanComptable(entries: CompteComptable[]): void {
+  planComptable = entries
+}
+
+export function resetToDefaultPlan(): void {
+  planComptable = defaultPlan
+}
 
 export function searchComptes(query: string): CompteComptable[] {
   if (!query) return planComptable.slice(0, 20)

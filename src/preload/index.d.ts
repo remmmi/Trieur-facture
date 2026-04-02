@@ -14,6 +14,10 @@ export interface ProcessData {
   date: string
   baseFolder: string
   fileName: string
+  stampX: number
+  stampY: number
+  stampRotation: number
+  customDest?: boolean
 }
 
 export interface ProcessResult {
@@ -27,6 +31,7 @@ export interface AiSuggestion {
   date?: string
   fixedPart?: string
   adjustablePart?: string
+  amount?: string
   confidence?: number
   rawText?: string
 }
@@ -62,6 +67,25 @@ export interface Api {
   addSupplierMapping: (mapping: SupplierMapping) => Promise<boolean>
   removeSupplierMapping: (invoiceName: string) => Promise<boolean>
   updateSupplierMapping: (oldInvoiceName: string, mapping: SupplierMapping) => Promise<boolean>
+
+  // File check
+  checkFileExists: (filePath: string) => Promise<boolean>
+
+  // Settings
+  getIncludeAmount: () => Promise<boolean>
+  setIncludeAmount: (value: boolean) => Promise<boolean>
+
+  // Plan comptable
+  importPlanComptable: (csvContent: string) => Promise<{ numero: string; libelle: string }[]>
+  getPlanComptable: () => Promise<{ numero: string; libelle: string }[] | null>
+  addPlanComptableEntry: (
+    entry: { numero: string; libelle: string },
+    currentPlan: { numero: string; libelle: string }[]
+  ) => Promise<{ numero: string; libelle: string }[]>
+  resetPlanComptable: () => Promise<boolean>
+
+  // Screenshot
+  captureScreenshot: (filePath: string) => Promise<boolean>
 
   // Persisted folders
   getLastFolders: () => Promise<{ source: string | null; destination: string | null }>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/store/useAppStore'
+import { loadPlanComptable } from '@/data/planComptable'
 import { WelcomeScreen } from '@/components/WelcomeScreen'
 import { Layout } from '@/components/Layout'
 import { SettingsPanel } from '@/components/SettingsPanel'
@@ -7,11 +8,17 @@ import { Button } from '@/components/ui/button'
 import { CheckCircle } from 'lucide-react'
 
 function App(): React.JSX.Element {
-  const { currentPdfPath, fileQueue, currentIndex, setCurrentPdfPath, sourceFolder } = useAppStore()
+  const { currentPdfPath, fileQueue, currentIndex, setCurrentPdfPath, hasStarted } = useAppStore()
   const [showSettings, setShowSettings] = useState(false)
 
-  // Load PDF when current file changes
+  // Load custom plan comptable on startup
   useEffect(() => {
+    loadPlanComptable()
+  }, [])
+
+  // Load PDF when current file changes (only after user started)
+  useEffect(() => {
+    if (!hasStarted) return
     const currentFile = fileQueue[currentIndex]
     if (!currentFile) return
 
@@ -23,6 +30,7 @@ function App(): React.JSX.Element {
 
         // Try AI pre-processing if available
         try {
+          useAppStore.getState().setAiProcessing(true)
           const suggestion = await window.api.aiPreProcess(pdfPath)
           if (suggestion && !cancelled) {
             const { setFormData, setAiExtractedSupplier } = useAppStore.getState()
@@ -31,7 +39,8 @@ function App(): React.JSX.Element {
               ...(suggestion.accountLabel && { accountLabel: suggestion.accountLabel }),
               ...(suggestion.date && { date: suggestion.date }),
               ...(suggestion.fixedPart && { fixedPart: suggestion.fixedPart }),
-              ...(suggestion.adjustablePart && { adjustablePart: suggestion.adjustablePart })
+              ...(suggestion.adjustablePart && { adjustablePart: suggestion.adjustablePart }),
+              ...(suggestion.amount && { amount: suggestion.amount })
             })
             // Store the raw supplier name from AI for potential mapping save
             if (suggestion.rawText) {
@@ -45,8 +54,13 @@ function App(): React.JSX.Element {
               }
             }
           }
-        } catch {
-          // AI pre-process is optional, ignore errors
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          if (msg.includes('AI_NO_CREDIT') || msg.includes('AI_AUTH_ERROR')) {
+            console.warn('AI disabled:', msg)
+          }
+        } finally {
+          if (!cancelled) useAppStore.getState().setAiProcessing(false)
         }
       }
     }
@@ -54,15 +68,15 @@ function App(): React.JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [fileQueue, currentIndex, setCurrentPdfPath])
+  }, [fileQueue, currentIndex, setCurrentPdfPath, hasStarted])
 
   // Settings panel
   if (showSettings) {
     return <SettingsPanel onClose={() => setShowSettings(false)} />
   }
 
-  // Welcome screen: no source folder selected yet
-  if (!sourceFolder) {
+  // Welcome screen: user hasn't started yet
+  if (!hasStarted) {
     return <WelcomeScreen onOpenSettings={() => setShowSettings(true)} />
   }
 
@@ -80,6 +94,7 @@ function App(): React.JSX.Element {
             onClick={() => {
               useAppStore.getState().setSourceFolder(null)
               useAppStore.getState().setCurrentPdfPath(null)
+              useAppStore.getState().setHasStarted(false)
             }}
           >
             Traiter un autre dossier

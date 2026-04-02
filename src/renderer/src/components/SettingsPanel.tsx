@@ -1,8 +1,25 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useAppStore } from '@/store/useAppStore'
+import { AccountCombobox } from '@/components/AccountCombobox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { Key, Plus, Pencil, Trash2, Save, X, ArrowLeft, Users, Settings2 } from 'lucide-react'
+import {
+  Key,
+  Plus,
+  Pencil,
+  Trash2,
+  Save,
+  X,
+  ArrowLeft,
+  Users,
+  Settings2,
+  FolderOpen,
+  FolderOutput,
+  FileSpreadsheet,
+  Upload,
+  RotateCcw
+} from 'lucide-react'
 
 interface SupplierMapping {
   invoiceName: string
@@ -15,13 +32,14 @@ interface SettingsPanelProps {
   onClose: () => void
 }
 
-type Tab = 'general' | 'mappings'
+type Tab = 'general' | 'mappings' | 'plancomptable'
 
 export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<Tab>('general')
   const [apiKey, setApiKey] = useState('')
   const [apiKeyDisplay, setApiKeyDisplay] = useState('')
   const [apiKeySaved, setApiKeySaved] = useState(false)
+  const [includeAmount, setIncludeAmount] = useState(false)
   const [mappings, setMappings] = useState<SupplierMapping[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<SupplierMapping>({
@@ -39,6 +57,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     ])
     setApiKeyDisplay(key)
     setMappings(supplierMappings)
+    window.api.getIncludeAmount().then(setIncludeAmount)
   }, [])
 
   useEffect(() => {
@@ -88,7 +107,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'general', label: 'Général', icon: <Settings2 className="h-4 w-4" /> },
-    { id: 'mappings', label: 'Fournisseurs', icon: <Users className="h-4 w-4" /> }
+    { id: 'mappings', label: 'Fournisseurs', icon: <Users className="h-4 w-4" /> },
+    {
+      id: 'plancomptable',
+      label: 'Plan comptable',
+      icon: <FileSpreadsheet className="h-4 w-4" />
+    }
   ]
 
   return (
@@ -123,6 +147,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
       <div className="flex-1 overflow-auto p-6 max-w-3xl mx-auto w-full">
         {activeTab === 'general' && (
           <div className="space-y-8">
+            {/* Dossiers */}
+            <FolderSettings />
+
             {/* API Key */}
             <section className="space-y-3">
               <div className="flex items-center gap-2">
@@ -149,6 +176,28 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
                   Clé actuelle : {apiKeyDisplay}
                 </p>
               )}
+            </section>
+
+            {/* Filename options */}
+            <section className="space-y-3">
+              <h2 className="text-base font-semibold">Nommage des fichiers</h2>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeAmount}
+                  onChange={async (e) => {
+                    setIncludeAmount(e.target.checked)
+                    await window.api.setIncludeAmount(e.target.checked)
+                  }}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-sm">
+                  Integrer le montant TTC dans le nom du fichier (en derniere position)
+                </span>
+              </label>
+              <p className="text-xs text-muted-foreground pl-7">
+                Exemple : Fournisseur - FAC-001 - 186.57.pdf
+              </p>
             </section>
           </div>
         )}
@@ -239,8 +288,199 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
             )}
           </div>
         )}
+
+        {activeTab === 'plancomptable' && <PlanComptableTab />}
       </div>
     </div>
+  )
+}
+
+/** Sous-composant pour l'import du plan comptable */
+function PlanComptableTab(): React.JSX.Element {
+  const [entries, setEntries] = useState<{ numero: string; libelle: string }[]>([])
+  const [isCustom, setIsCustom] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const loadCurrent = useCallback(async () => {
+    const custom = await window.api.getPlanComptable()
+    if (custom && custom.length > 0) {
+      setEntries(custom)
+      setIsCustom(true)
+    } else {
+      const { planComptable } = await import('@/data/planComptable')
+      setEntries(planComptable)
+      setIsCustom(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadCurrent()
+  }, [loadCurrent])
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImporting(true)
+    setMessage(null)
+    try {
+      const text = await file.text()
+      const imported = await window.api.importPlanComptable(text)
+      const { setPlanComptable } = await import('@/data/planComptable')
+      setPlanComptable(imported)
+      setEntries(imported)
+      setIsCustom(true)
+      setMessage(`${imported.length} comptes importes`)
+    } catch (err) {
+      setMessage(`Erreur: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleReset = async (): Promise<void> => {
+    await window.api.resetPlanComptable()
+    const { resetToDefaultPlan, planComptable } = await import('@/data/planComptable')
+    resetToDefaultPlan()
+    setEntries(planComptable)
+    setIsCustom(false)
+    setMessage('Plan comptable par defaut restaure')
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-base font-semibold">Plan comptable</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Importez votre plan comptable au format CSV.
+          Colonnes attendues : <span className="font-mono">numero</span>,{' '}
+          <span className="font-mono">libelle</span> (separateur : virgule, point-virgule ou
+          tabulation).
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,.txt"
+          className="hidden"
+          onChange={handleImport}
+        />
+        <Button
+          variant="outline"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={importing}
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          {importing ? 'Import en cours...' : 'Importer un CSV'}
+        </Button>
+        {isCustom && (
+          <Button variant="outline" onClick={handleReset}>
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Restaurer le plan par defaut
+          </Button>
+        )}
+      </div>
+
+      {message && (
+        <p className="text-sm text-muted-foreground">{message}</p>
+      )}
+
+      <div className="text-sm text-muted-foreground">
+        {isCustom ? 'Plan comptable personnalise' : 'Plan comptable par defaut'} --{' '}
+        {entries.length} comptes
+      </div>
+
+      {/* Preview table */}
+      <div className="rounded-md border border-border overflow-hidden">
+        <div className="grid grid-cols-[100px_1fr] text-xs font-medium bg-muted/50 px-3 py-2 border-b border-border">
+          <span>Numero</span>
+          <span>Libelle</span>
+        </div>
+        <div className="max-h-64 overflow-auto">
+          {entries.map((e) => (
+            <div
+              key={e.numero}
+              className="grid grid-cols-[100px_1fr] text-sm px-3 py-1.5 border-b border-border last:border-0"
+            >
+              <span className="font-mono">{e.numero}</span>
+              <span className="text-muted-foreground">{e.libelle}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Sous-composant pour la gestion des dossiers source/destination */
+function FolderSettings(): React.JSX.Element {
+  const { sourceFolder, destinationFolder, setSourceFolder, setDestinationFolder, setFileQueue } =
+    useAppStore()
+
+  const handleSelectSource = async (): Promise<void> => {
+    const folder = await window.api.selectFolder()
+    if (folder) {
+      setSourceFolder(folder)
+      const files = await window.api.scanFolder(folder)
+      setFileQueue(files)
+      const { destinationFolder: dest } = useAppStore.getState()
+      await window.api.setLastFolders(folder, dest)
+    }
+  }
+
+  const handleSelectDestination = async (): Promise<void> => {
+    const folder = await window.api.selectDestinationFolder()
+    if (folder) {
+      setDestinationFolder(folder)
+      const { sourceFolder: src } = useAppStore.getState()
+      await window.api.setLastFolders(src, folder)
+    }
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2">
+        <FolderOpen className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-base font-semibold">Dossiers</h2>
+      </div>
+      <div className="space-y-2">
+        <div className="space-y-1">
+          <Label className="text-xs">Dossier source (factures)</Label>
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-2"
+            onClick={handleSelectSource}
+          >
+            <FolderOpen className="h-4 w-4 shrink-0" />
+            {sourceFolder ? (
+              <span className="truncate">{sourceFolder}</span>
+            ) : (
+              <span className="text-muted-foreground">Aucun dossier selectionne</span>
+            )}
+          </Button>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Dossier destination (comptabilite)</Label>
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-2"
+            onClick={handleSelectDestination}
+          >
+            <FolderOutput className="h-4 w-4 shrink-0" />
+            {destinationFolder ? (
+              <span className="truncate">{destinationFolder}</span>
+            ) : (
+              <span className="text-muted-foreground">Aucun dossier selectionne</span>
+            )}
+          </Button>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -278,20 +518,14 @@ function MappingForm({
             onChange={(e) => onChange({ ...form, shortName: e.target.value })}
           />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 col-span-2">
           <Label className="text-xs">Compte comptable</Label>
-          <Input
-            placeholder="6061"
-            value={form.defaultAccount}
-            onChange={(e) => onChange({ ...form, defaultAccount: e.target.value })}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Libellé du compte</Label>
-          <Input
-            placeholder="Fournitures non stockables"
-            value={form.defaultAccountLabel}
-            onChange={(e) => onChange({ ...form, defaultAccountLabel: e.target.value })}
+          <AccountCombobox
+            accountNumber={form.defaultAccount}
+            accountLabel={form.defaultAccountLabel}
+            onSelect={(numero, libelle) =>
+              onChange({ ...form, defaultAccount: numero, defaultAccountLabel: libelle })
+            }
           />
         </div>
       </div>
