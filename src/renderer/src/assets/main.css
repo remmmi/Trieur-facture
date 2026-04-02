@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* Dark theme (default) */
 @theme {
   --color-background: #1c1b19;
   --color-foreground: #fafafa;
@@ -22,6 +23,30 @@
   --color-ring: #d4d4d4;
   --color-success: #22c55e;
   --radius: 0.5rem;
+}
+
+/* Light theme override */
+[data-theme="light"] {
+  --color-background: #f8f7f6;
+  --color-foreground: #1c1b19;
+  --color-card: #ffffff;
+  --color-card-foreground: #1c1b19;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1c1b19;
+  --color-primary: #1c1b19;
+  --color-primary-foreground: #fafafa;
+  --color-secondary: #f0efed;
+  --color-secondary-foreground: #1c1b19;
+  --color-muted: #f0efed;
+  --color-muted-foreground: #6b6a68;
+  --color-accent: #f0efed;
+  --color-accent-foreground: #1c1b19;
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #fafafa;
+  --color-border: #e0dfdd;
+  --color-input: #e0dfdd;
+  --color-ring: #a3a3a3;
+  --color-success: #16a34a;
 }
 
 body {
