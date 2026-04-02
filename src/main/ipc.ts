@@ -1,6 +1,11 @@
-import { ipcMain } from 'electron'
-import { readFile } from 'fs/promises'
-import { selectFolder, scanFolder, selectDestinationFolder } from './services/fileService'
+import { ipcMain, BrowserWindow } from 'electron'
+import { readFile, writeFile, access } from 'fs/promises'
+import {
+  selectFolder,
+  scanFolder,
+  selectDestinationFolder,
+  setLastPaths
+} from './services/fileService'
 import { ensurePdf } from './services/convertService'
 import { processDocument, runAiPostProcess, type ProcessData } from './services/stampService'
 import { extractInvoiceData, initializeAiService, isAiConfigured } from './services/aiService'
@@ -14,6 +19,13 @@ import {
   setApiKey,
   getLastFolders,
   setLastFolders,
+  getIncludeAmountInFilename,
+  setIncludeAmountInFilename,
+  importPlanComptable,
+  getPlanComptable,
+  resetPlanComptable,
+  addPlanComptableEntry,
+  type PlanComptableEntry,
   type SupplierMapping
 } from './services/supplierMappingService'
 
@@ -23,6 +35,10 @@ export async function registerIpcHandlers(): Promise<void> {
   if (apiKey) {
     initializeAiService(apiKey)
   }
+
+  // Initialize last paths from persisted folders
+  const lastFolders = await getLastFolders()
+  setLastPaths(lastFolders.source, lastFolders.destination)
 
   // --- File operations ---
   ipcMain.handle('select-folder', async () => selectFolder())
@@ -103,6 +119,51 @@ export async function registerIpcHandlers(): Promise<void> {
     }
   )
 
+  // --- Plan comptable ---
+  ipcMain.handle('import-plan-comptable', async (_event, csvContent: string) => {
+    return importPlanComptable(csvContent)
+  })
+
+  ipcMain.handle('get-plan-comptable', async () => getPlanComptable())
+
+  ipcMain.handle(
+    'add-plan-comptable-entry',
+    async (_event, entry: PlanComptableEntry, currentPlan: PlanComptableEntry[]) => {
+      return addPlanComptableEntry(entry, currentPlan)
+    }
+  )
+
+  ipcMain.handle('reset-plan-comptable', async () => {
+    await resetPlanComptable()
+    return true
+  })
+
+  // --- Screenshot ---
+  ipcMain.handle('capture-screenshot', async (_event, filePath: string) => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    if (!win) return false
+    const image = await win.webContents.capturePage()
+    await writeFile(filePath, image.toPNG())
+    return true
+  })
+
+  // --- File existence check ---
+  ipcMain.handle('check-file-exists', async (_event, filePath: string) => {
+    try {
+      await access(filePath)
+      return true
+    } catch {
+      return false
+    }
+  })
+
+  // --- Settings ---
+  ipcMain.handle('get-include-amount', async () => getIncludeAmountInFilename())
+  ipcMain.handle('set-include-amount', async (_event, value: boolean) => {
+    await setIncludeAmountInFilename(value)
+    return true
+  })
+
   // --- Persisted folders ---
   ipcMain.handle('get-last-folders', async () => getLastFolders())
 
@@ -110,6 +171,7 @@ export async function registerIpcHandlers(): Promise<void> {
     'set-last-folders',
     async (_event, source: string | null, destination: string | null) => {
       await setLastFolders(source, destination)
+      setLastPaths(source, destination)
       return true
     }
   )

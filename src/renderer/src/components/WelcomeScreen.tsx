@@ -14,7 +14,7 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
     setSourceFolder,
     setDestinationFolder,
     setFileQueue,
-    setCurrentPdfPath,
+    setHasStarted,
     fileQueue
   } = useAppStore()
 
@@ -63,13 +63,8 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
     }
   }
 
-  const handleStart = async (): Promise<void> => {
-    const { fileQueue: queue } = useAppStore.getState()
-    if (queue.length > 0) {
-      const firstFile = queue[0]
-      const pdfPath = await window.api.ensurePdf(firstFile.path)
-      setCurrentPdfPath(pdfPath)
-    }
+  const handleStart = (): void => {
+    setHasStarted(true)
   }
 
   const canStart = sourceFolder && destinationFolder && fileQueue.length > 0

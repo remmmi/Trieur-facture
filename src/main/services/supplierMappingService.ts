@@ -13,18 +13,27 @@ export interface SupplierMapping {
   defaultAccountLabel: string
 }
 
+export interface PlanComptableEntry {
+  numero: string
+  libelle: string
+}
+
 export interface AppConfig {
   anthropicApiKey: string
   supplierMappings: SupplierMapping[]
   lastSourceFolder: string | null
   lastDestinationFolder: string | null
+  customPlanComptable: PlanComptableEntry[] | null
+  includeAmountInFilename: boolean
 }
 
 const DEFAULT_CONFIG: AppConfig = {
   anthropicApiKey: '',
   supplierMappings: [],
   lastSourceFolder: null,
-  lastDestinationFolder: null
+  lastDestinationFolder: null,
+  customPlanComptable: null,
+  includeAmountInFilename: false
 }
 
 function getConfigPath(): string {
@@ -94,28 +103,95 @@ export async function updateSupplierMapping(
  * Trouve le mapping correspondant à un nom de fournisseur extrait par l'IA.
  * Utilise une recherche floue : le nom extrait contient le nom du mapping ou vice-versa.
  */
+function normalize(s: string): string {
+  return s.toLowerCase().trim().replace(/[-_./\\]+/g, ' ').replace(/\s+/g, ' ')
+}
+
 export function findSupplierMapping(
   extractedName: string,
   mappings: SupplierMapping[]
 ): SupplierMapping | null {
-  const normalized = extractedName.toLowerCase().trim()
+  const n = normalize(extractedName)
 
-  // Exact match first
-  const exact = mappings.find((m) => m.invoiceName.toLowerCase() === normalized)
+  // Exact match first (with normalized comparison)
+  const exact = mappings.find((m) => normalize(m.invoiceName) === n)
   if (exact) return exact
 
   // Partial match: extracted name contains the mapping name or vice-versa
   const partial = mappings.find(
     (m) =>
-      normalized.includes(m.invoiceName.toLowerCase()) ||
-      m.invoiceName.toLowerCase().includes(normalized) ||
-      normalized.includes(m.shortName.toLowerCase()) ||
-      m.shortName.toLowerCase().includes(normalized)
+      n.includes(normalize(m.invoiceName)) ||
+      normalize(m.invoiceName).includes(n) ||
+      n.includes(normalize(m.shortName)) ||
+      normalize(m.shortName).includes(n)
   )
   if (partial) return partial
 
   return null
 }
+
+// --- Plan comptable ---
+
+export async function importPlanComptable(csvContent: string): Promise<PlanComptableEntry[]> {
+  const lines = csvContent.split(/\r?\n/).filter((l) => l.trim())
+  const entries: PlanComptableEntry[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    // Skip header row if it contains "numero" or "libelle"
+    if (i === 0 && /^[a-zA-Z]/.test(line.split(/[,;\t]/)[0])) continue
+
+    const sep = line.includes('\t') ? '\t' : line.includes(';') ? ';' : ','
+    const parts = line.split(sep)
+    if (parts.length < 2) continue
+
+    const numero = parts[0].trim().replace(/^["']|["']$/g, '')
+    const libelle = parts
+      .slice(1)
+      .join(sep)
+      .trim()
+      .replace(/^["']|["']$/g, '')
+    if (numero && libelle) {
+      entries.push({ numero, libelle })
+    }
+  }
+
+  const config = await loadConfig()
+  config.customPlanComptable = entries
+  await saveConfig(config)
+  return entries
+}
+
+export async function getPlanComptable(): Promise<PlanComptableEntry[] | null> {
+  const config = await loadConfig()
+  return config.customPlanComptable
+}
+
+export async function addPlanComptableEntry(
+  entry: PlanComptableEntry,
+  currentPlan: PlanComptableEntry[]
+): Promise<PlanComptableEntry[]> {
+  const config = await loadConfig()
+  // If no custom plan yet, initialize from the current in-memory plan
+  if (!config.customPlanComptable) {
+    config.customPlanComptable = [...currentPlan]
+  }
+  const exists = config.customPlanComptable.find((e) => e.numero === entry.numero)
+  if (!exists) {
+    config.customPlanComptable.push(entry)
+    config.customPlanComptable.sort((a, b) => a.numero.localeCompare(b.numero))
+  }
+  await saveConfig(config)
+  return config.customPlanComptable
+}
+
+export async function resetPlanComptable(): Promise<void> {
+  const config = await loadConfig()
+  config.customPlanComptable = null
+  await saveConfig(config)
+}
+
+// --- API key ---
 
 export async function getApiKey(): Promise<string> {
   const config = await loadConfig()
@@ -146,5 +222,18 @@ export async function setLastFolders(
   const config = await loadConfig()
   config.lastSourceFolder = source
   config.lastDestinationFolder = destination
+  await saveConfig(config)
+}
+
+// --- Settings ---
+
+export async function getIncludeAmountInFilename(): Promise<boolean> {
+  const config = await loadConfig()
+  return config.includeAmountInFilename ?? false
+}
+
+export async function setIncludeAmountInFilename(value: boolean): Promise<void> {
+  const config = await loadConfig()
+  config.includeAmountInFilename = value
   await saveConfig(config)
 }

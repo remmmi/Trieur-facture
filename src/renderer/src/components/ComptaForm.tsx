@@ -4,10 +4,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { SaveMappingDialog } from '@/components/SaveMappingDialog'
-import { searchComptes, type CompteComptable } from '@/data/planComptable'
+import { AccountCombobox } from '@/components/AccountCombobox'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { Check, FolderTree, Loader2 } from 'lucide-react'
+import { Check, FolderTree, Loader2, Sparkles } from 'lucide-react'
 
 interface SupplierMapping {
   invoiceName: string
@@ -29,14 +29,10 @@ export function ComptaForm(): React.JSX.Element {
     resetForm,
     currentPdfPath,
     setCurrentPdfPath,
-    aiExtractedSupplier
+    aiExtractedSupplier,
+    aiProcessing,
+    setAiProcessing
   } = useAppStore()
-
-  // Account autocomplete
-  const [accountQuery, setAccountQuery] = useState('')
-  const [showAccountSuggestions, setShowAccountSuggestions] = useState(false)
-  const accountSuggestionsRef = useRef<HTMLDivElement>(null)
-  const accountInputRef = useRef<HTMLInputElement>(null)
 
   // Supplier autocomplete
   const [supplierQuery, setSupplierQuery] = useState('')
@@ -55,8 +51,14 @@ export function ComptaForm(): React.JSX.Element {
     accountLabel: string
   } | null>(null)
 
-  const accountSuggestions = useMemo(() => searchComptes(accountQuery), [accountQuery])
+  const [includeAmount, setIncludeAmount] = useState(false)
+  const [customDestFolder, setCustomDestFolder] = useState<string | null>(null)
   const currentFile = fileQueue[currentIndex]
+
+  // Load settings
+  useEffect(() => {
+    window.api.getIncludeAmount().then(setIncludeAmount)
+  }, [])
 
   // Load supplier mappings
   useEffect(() => {
@@ -85,14 +87,6 @@ export function ComptaForm(): React.JSX.Element {
   useEffect(() => {
     const handleClick = (e: MouseEvent): void => {
       const target = e.target as Node
-      if (
-        accountSuggestionsRef.current &&
-        !accountSuggestionsRef.current.contains(target) &&
-        accountInputRef.current &&
-        !accountInputRef.current.contains(target)
-      ) {
-        setShowAccountSuggestions(false)
-      }
       if (
         supplierSuggestionsRef.current &&
         !supplierSuggestionsRef.current.contains(target) &&
@@ -123,22 +117,9 @@ export function ComptaForm(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFormData.fixedPart])
 
-  // --- Account handlers ---
-  const handleSelectAccount = (compte: CompteComptable): void => {
-    setFormData({ accountNumber: compte.numero, accountLabel: compte.libelle })
-    setAccountQuery(`${compte.numero} - ${compte.libelle}`)
-    setShowAccountSuggestions(false)
-  }
-
-  const handleAccountInputChange = (value: string): void => {
-    setAccountQuery(value)
-    setShowAccountSuggestions(true)
-    const match = value.match(/^(\d+)\s*-?\s*(.*)$/)
-    if (match) {
-      setFormData({ accountNumber: match[1], accountLabel: match[2] || '' })
-    } else {
-      setFormData({ accountNumber: value, accountLabel: '' })
-    }
+  // --- Account handler ---
+  const handleSelectAccount = (numero: string, libelle: string): void => {
+    setFormData({ accountNumber: numero, accountLabel: libelle })
   }
 
   // --- Supplier handlers ---
@@ -149,11 +130,6 @@ export function ComptaForm(): React.JSX.Element {
       accountNumber: mapping.defaultAccount,
       accountLabel: mapping.defaultAccountLabel
     })
-    setAccountQuery(
-      mapping.defaultAccount
-        ? `${mapping.defaultAccount}${mapping.defaultAccountLabel ? ' - ' + mapping.defaultAccountLabel : ''}`
-        : ''
-    )
     setShowSupplierSuggestions(false)
   }
 
@@ -171,16 +147,30 @@ export function ComptaForm(): React.JSX.Element {
 
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
-    const fileName = [currentFormData.fixedPart, currentFormData.adjustablePart]
-      .filter(Boolean)
-      .join(' - ')
+    const parts = [currentFormData.fixedPart, currentFormData.adjustablePart]
+    if (includeAmount && currentFormData.amount) {
+      parts.push(currentFormData.amount)
+    }
+    const fileName = parts.filter(Boolean).join(' - ')
     const fullFileName = fileName ? `${fileName}.pdf` : '(nom de fichier incomplet)'
-    return { full: `${destinationFolder}/${year}/${month}/${fullFileName}` }
+    const effectiveBase = (customDestFolder || destinationFolder).replace(/\/+$/, '')
+    const lastDir = effectiveBase.split(/[/\\]/).pop() || effectiveBase
+    const subPath = customDestFolder ? '' : `${year}/${month}`
+    const full = subPath
+      ? `${effectiveBase}/${subPath}/${fullFileName}`
+      : `${effectiveBase}/${fullFileName}`
+    const short = subPath
+      ? `${lastDir}/${subPath}/${fullFileName}`
+      : `${lastDir}/${fullFileName}`
+    return { full, short, isCustom: !!customDestFolder }
   }, [
     destinationFolder,
+    customDestFolder,
     currentFormData.date,
     currentFormData.fixedPart,
-    currentFormData.adjustablePart
+    currentFormData.adjustablePart,
+    currentFormData.amount,
+    includeAmount
   ])
 
   const dateLabel = currentFormData.date
@@ -206,17 +196,47 @@ export function ComptaForm(): React.JSX.Element {
     setMessage(null)
 
     try {
-      const fileName = [currentFormData.fixedPart, currentFormData.adjustablePart]
-        .filter(Boolean)
-        .join(' - ')
+      const nameParts = [currentFormData.fixedPart, currentFormData.adjustablePart]
+      if (includeAmount && currentFormData.amount) {
+        nameParts.push(currentFormData.amount)
+      }
+      const fileName = nameParts.filter(Boolean).join(' - ')
 
+      // Build the effective destination path
+      const effectiveBase = (customDestFolder || destinationFolder).replace(/\/+$/, '')
+      let destPath: string
+      if (customDestFolder) {
+        destPath = `${effectiveBase}/${fileName}.pdf`
+      } else {
+        const dateObj = new Date(currentFormData.date)
+        const year = dateObj.getFullYear()
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+        destPath = `${effectiveBase}/${year}/${month}/${fileName}.pdf`
+      }
+
+      // Check if destination file already exists
+      const exists = await window.api.checkFileExists(destPath)
+      if (exists) {
+        setIsProcessing(false)
+        setMessage({
+          type: 'error',
+          text: `Un fichier "${fileName}.pdf" existe deja a cette destination. Modifiez la partie ajustable pour eviter l'ecrasement.`
+        })
+        return
+      }
+
+      const { stampX, stampY, stampRotation } = useAppStore.getState()
       const result = await window.api.processDocument({
         sourcePath: currentPdfPath,
         accountNumber: currentFormData.accountNumber,
         accountLabel: currentFormData.accountLabel,
         date: currentFormData.date,
-        baseFolder: destinationFolder,
-        fileName
+        baseFolder: customDestFolder || destinationFolder,
+        fileName,
+        customDest: !!customDestFolder,
+        stampX,
+        stampY,
+        stampRotation
       })
 
       if (result.success) {
@@ -244,8 +264,8 @@ export function ComptaForm(): React.JSX.Element {
 
         removeCurrentFile()
         resetForm()
-        setAccountQuery('')
         setSupplierQuery('')
+        setCustomDestFolder(null)
 
         const state = useAppStore.getState()
         if (state.fileQueue.length > 0) {
@@ -290,10 +310,65 @@ export function ComptaForm(): React.JSX.Element {
     reloadMappings()
   }
 
+  const handleAiReread = useCallback(async () => {
+    if (!currentPdfPath || aiProcessing) return
+    setAiProcessing(true)
+    try {
+      const suggestion = await window.api.aiPreProcess(currentPdfPath)
+      if (suggestion) {
+        setFormData({
+          ...(suggestion.accountNumber && { accountNumber: suggestion.accountNumber }),
+          ...(suggestion.accountLabel && { accountLabel: suggestion.accountLabel }),
+          ...(suggestion.date && { date: suggestion.date }),
+          ...(suggestion.fixedPart && { fixedPart: suggestion.fixedPart }),
+          ...(suggestion.adjustablePart && { adjustablePart: suggestion.adjustablePart }),
+          ...(suggestion.amount && { amount: suggestion.amount })
+        })
+        if (suggestion.fixedPart) setSupplierQuery(suggestion.fixedPart)
+        if (suggestion.rawText) {
+          try {
+            const parsed = JSON.parse(suggestion.rawText)
+            if (parsed.supplierName) {
+              useAppStore.getState().setAiExtractedSupplier(parsed.supplierName)
+            }
+          } catch {
+            // not JSON
+          }
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('AI_NO_CREDIT')) {
+        setMessage({ type: 'error', text: 'Credit API Claude epuise. Rechargez votre compte sur console.anthropic.com' })
+      } else if (msg.includes('AI_RATE_LIMIT')) {
+        setMessage({ type: 'error', text: 'Trop de requetes IA. Reessayez dans quelques secondes.' })
+      } else if (msg.includes('AI_AUTH_ERROR')) {
+        setMessage({ type: 'error', text: 'Cle API Claude invalide. Verifiez dans les parametres.' })
+      } else if (msg.includes('AI_NETWORK_ERROR')) {
+        setMessage({ type: 'error', text: 'Impossible de contacter l\'API Claude. Verifiez votre connexion.' })
+      } else if (msg.includes('AI_API_ERROR')) {
+        setMessage({ type: 'error', text: 'Erreur de l\'API Claude. Reessayez.' })
+      }
+    } finally {
+      setAiProcessing(false)
+    }
+  }, [currentPdfPath, aiProcessing, setAiProcessing, setFormData])
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Informations comptables</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">Informations comptables</h2>
+          <button
+            type="button"
+            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40"
+            onClick={handleAiReread}
+            disabled={aiProcessing || !currentPdfPath}
+            title="Relecture IA"
+          >
+            <Sparkles className={`h-4 w-4 ${aiProcessing ? 'ai-pulse' : 'text-fuchsia-500'}`} />
+          </button>
+        </div>
         {currentFile && (
           <span className="text-xs text-muted-foreground truncate max-w-[200px]">
             {currentFile.name}
@@ -370,46 +445,14 @@ export function ComptaForm(): React.JSX.Element {
         )}
       </div>
 
-      {/* Account selector with autocomplete */}
-      <div className="space-y-2 relative">
-        <Label htmlFor="account">Compte comptable</Label>
-        <Input
-          id="account"
-          ref={accountInputRef}
-          placeholder="Tapez un numéro ou un libellé..."
-          value={accountQuery}
-          onChange={(e) => handleAccountInputChange(e.target.value)}
-          onFocus={() => setShowAccountSuggestions(true)}
-          autoComplete="off"
+      {/* Account selector combobox */}
+      <div className="space-y-2">
+        <Label>Compte comptable</Label>
+        <AccountCombobox
+          accountNumber={currentFormData.accountNumber}
+          accountLabel={currentFormData.accountLabel}
+          onSelect={handleSelectAccount}
         />
-        {showAccountSuggestions && accountSuggestions.length > 0 && (
-          <div
-            ref={accountSuggestionsRef}
-            className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-auto rounded-md border border-border bg-popover shadow-md"
-          >
-            {accountSuggestions.map((compte) => (
-              <button
-                key={compte.numero}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-accent text-left cursor-pointer"
-                onClick={() => handleSelectAccount(compte)}
-              >
-                <span className="font-mono font-medium text-primary min-w-[50px]">
-                  {compte.numero}
-                </span>
-                <span className="text-muted-foreground truncate">{compte.libelle}</span>
-                {currentFormData.accountNumber === compte.numero && (
-                  <Check className="h-3 w-3 ml-auto text-success" />
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-        {currentFormData.accountNumber && (
-          <p className="text-xs text-muted-foreground">
-            Compte: <span className="font-mono">{currentFormData.accountNumber}</span>
-            {currentFormData.accountLabel && ` - ${currentFormData.accountLabel}`}
-          </p>
-        )}
       </div>
 
       {/* Date */}
@@ -435,14 +478,48 @@ export function ComptaForm(): React.JSX.Element {
         />
       </div>
 
-      {/* Path preview */}
+      {/* Amount */}
+      <div className="space-y-2">
+        <Label htmlFor="amount">Montant TTC</Label>
+        <Input
+          id="amount"
+          placeholder="Ex: 186.57"
+          value={currentFormData.amount}
+          onChange={(e) => setFormData({ amount: e.target.value })}
+        />
+      </div>
+
+      {/* Path preview - clickable to change destination */}
       {pathPreview && (
-        <div className="rounded-md border border-border bg-muted/50 p-3 space-y-1">
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <FolderTree className="h-3 w-3" />
-            Aperçu du chemin de destination
+        <div
+          className="rounded-md border border-border bg-muted/50 p-3 space-y-1 cursor-pointer hover:bg-muted/80 transition-colors"
+          onClick={async () => {
+            const folder = await window.api.selectDestinationFolder()
+            if (folder) {
+              setCustomDestFolder(folder)
+            }
+          }}
+          title="Cliquer pour choisir un autre dossier de destination"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <FolderTree className="h-3 w-3" />
+              Destination
+            </div>
+            {pathPreview.isCustom && (
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setCustomDestFolder(null)
+                }}
+              >
+                Reinitialiser
+              </button>
+            )}
           </div>
-          <p className="text-xs font-mono break-all">{pathPreview.full}</p>
+          <p className="text-xs font-mono break-all">{pathPreview.short}</p>
         </div>
       )}
 

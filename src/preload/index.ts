@@ -30,6 +30,31 @@ const api = {
   updateSupplierMapping: (oldInvoiceName: string, mapping: unknown): Promise<boolean> =>
     ipcRenderer.invoke('update-supplier-mapping', oldInvoiceName, mapping),
 
+  // File check
+  checkFileExists: (filePath: string): Promise<boolean> =>
+    ipcRenderer.invoke('check-file-exists', filePath),
+
+  // Settings
+  getIncludeAmount: (): Promise<boolean> => ipcRenderer.invoke('get-include-amount'),
+  setIncludeAmount: (value: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('set-include-amount', value),
+
+  // Plan comptable
+  importPlanComptable: (csvContent: string): Promise<{ numero: string; libelle: string }[]> =>
+    ipcRenderer.invoke('import-plan-comptable', csvContent),
+  getPlanComptable: (): Promise<{ numero: string; libelle: string }[] | null> =>
+    ipcRenderer.invoke('get-plan-comptable'),
+  addPlanComptableEntry: (
+    entry: { numero: string; libelle: string },
+    currentPlan: { numero: string; libelle: string }[]
+  ): Promise<{ numero: string; libelle: string }[]> =>
+    ipcRenderer.invoke('add-plan-comptable-entry', entry, currentPlan),
+  resetPlanComptable: (): Promise<boolean> => ipcRenderer.invoke('reset-plan-comptable'),
+
+  // Screenshot
+  captureScreenshot: (filePath: string): Promise<boolean> =>
+    ipcRenderer.invoke('capture-screenshot', filePath),
+
   // Persisted folders
   getLastFolders: (): Promise<{ source: string | null; destination: string | null }> =>
     ipcRenderer.invoke('get-last-folders'),

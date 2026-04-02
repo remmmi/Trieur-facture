@@ -3,14 +3,20 @@ import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString()
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
+
+interface StampInfo {
+  cx: number
+  cy: number
+  w: number
+  h: number
+  rad: number
+}
 
 export function PdfPreview(): React.JSX.Element {
-  const { currentPdfPath } = useAppStore()
+  const { currentPdfPath, currentFormData, stampX, stampY, stampRotation, setStampPosition, setStampRotation } = useAppStore()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -18,6 +24,62 @@ export function PdfPreview(): React.JSX.Element {
   const [scale, setScale] = useState(1.2)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Drag state (not in store, local only)
+  const dragging = useRef(false)
+  const dragOffset = useRef({ dx: 0, dy: 0 })
+  const lastStamp = useRef<StampInfo | null>(null)
+  const viewportRef = useRef<{ width: number; height: number }>({ width: 1, height: 1 })
+
+  const drawStamp = useCallback(
+    (context: CanvasRenderingContext2D, canvasW: number, canvasH: number) => {
+      const { accountNumber, accountLabel } = useAppStore.getState().currentFormData
+      if (!accountNumber) {
+        lastStamp.current = null
+        return
+      }
+
+      const stampText = `${accountNumber}${accountLabel ? ' - ' + accountLabel : ''}`
+      const pdfW = canvasW / scale
+      const fontSize = Math.max(8, Math.min(12, pdfW / 30)) * scale
+      const padding = 4 * scale
+
+      context.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`
+      const textWidth = context.measureText(stampText).width
+      const boxW = textWidth + padding * 2
+      const boxH = fontSize + padding * 2
+
+      const { stampX: sx, stampY: sy, stampRotation: rot } = useAppStore.getState()
+      const cx = sx * canvasW
+      const cy = sy * canvasH
+
+      // Center of the stamp box for rotation
+      const centerX = cx + boxW / 2
+      const centerY = cy + boxH / 2
+      const rad = (rot * Math.PI) / 180
+
+      context.save()
+      context.translate(centerX, centerY)
+      context.rotate(rad)
+      context.translate(-boxW / 2, -boxH / 2)
+
+      // White background with border
+      context.fillStyle = 'rgba(255, 255, 255, 0.9)'
+      context.fillRect(0, 0, boxW, boxH)
+      context.strokeStyle = 'rgba(150, 150, 150, 0.8)'
+      context.lineWidth = 0.5 * scale
+      context.strokeRect(0, 0, boxW, boxH)
+
+      // Red text
+      context.fillStyle = 'rgba(200, 0, 0, 1)'
+      context.fillText(stampText, padding, padding + fontSize * 0.85)
+
+      context.restore()
+
+      lastStamp.current = { cx: centerX, cy: centerY, w: boxW, h: boxH, rad }
+    },
+    [scale]
+  )
 
   const renderPage = useCallback(
     async (doc: pdfjsLib.PDFDocumentProxy, pageNum: number) => {
@@ -28,13 +90,21 @@ export function PdfPreview(): React.JSX.Element {
       const viewport = page.getViewport({ scale })
       canvas.width = viewport.width
       canvas.height = viewport.height
+      viewportRef.current = { width: viewport.width, height: viewport.height }
 
       const context = canvas.getContext('2d')
       if (!context) return
 
+      context.fillStyle = '#ffffff'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+
       await page.render({ canvasContext: context, viewport, canvas } as never).promise
+
+      if (pageNum === 1) {
+        drawStamp(context, viewport.width, viewport.height)
+      }
     },
-    [scale]
+    [scale, drawStamp]
   )
 
   useEffect(() => {
@@ -77,10 +147,131 @@ export function PdfPreview(): React.JSX.Element {
     }
   }, [pdfDoc, currentPage, renderPage])
 
+  // Re-render stamp preview when account or position changes
+  useEffect(() => {
+    if (pdfDoc && currentPage === 1) {
+      renderPage(pdfDoc, 1)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFormData.accountNumber, currentFormData.accountLabel, stampX, stampY, stampRotation])
+
+  // --- Drag handlers ---
+  const getCanvasPos = (e: React.MouseEvent): { cx: number; cy: number } => {
+    const canvas = canvasRef.current
+    if (!canvas) return { cx: 0, cy: 0 }
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    return {
+      cx: (e.clientX - rect.left) * scaleX,
+      cy: (e.clientY - rect.top) * scaleY
+    }
+  }
+
+  const isInsideStamp = (px: number, py: number): boolean => {
+    const s = lastStamp.current
+    if (!s) return false
+    // Rotate point back into stamp's local space
+    const dx = px - s.cx
+    const dy = py - s.cy
+    const cos = Math.cos(-s.rad)
+    const sin = Math.sin(-s.rad)
+    const lx = dx * cos - dy * sin
+    const ly = dx * sin + dy * cos
+    return Math.abs(lx) <= s.w / 2 + 4 && Math.abs(ly) <= s.h / 2 + 4
+  }
+
+  const handleMouseDown = (e: React.MouseEvent): void => {
+    if (currentPage !== 1) return
+    const { cx, cy } = getCanvasPos(e)
+    if (isInsideStamp(cx, cy)) {
+      dragging.current = true
+      const s = lastStamp.current!
+      // Offset from stamp's top-left (in canvas coords, before rotation)
+      const topLeftX = s.cx - s.w / 2
+      const topLeftY = s.cy - s.h / 2
+      dragOffset.current = { dx: cx - topLeftX, dy: cy - topLeftY }
+      e.preventDefault()
+    }
+  }
+
+  const handleMouseMove = (e: React.MouseEvent): void => {
+    if (!dragging.current) {
+      // Change cursor when hovering stamp
+      const canvas = canvasRef.current
+      if (canvas && currentPage === 1) {
+        const { cx, cy } = getCanvasPos(e)
+        canvas.style.cursor = isInsideStamp(cx, cy) ? 'grab' : ''
+      }
+      return
+    }
+    const canvas = canvasRef.current
+    if (!canvas) return
+    canvas.style.cursor = 'grabbing'
+    const { cx, cy } = getCanvasPos(e)
+    const newX = (cx - dragOffset.current.dx) / canvas.width
+    const newY = (cy - dragOffset.current.dy) / canvas.height
+    setStampPosition(Math.max(0, Math.min(1, newX)), Math.max(0, Math.min(1, newY)))
+  }
+
+  const handleMouseUp = (): void => {
+    if (dragging.current) {
+      dragging.current = false
+      const canvas = canvasRef.current
+      if (canvas) canvas.style.cursor = ''
+    }
+  }
+
+  // Callback ref: attach wheel listener as soon as the scroll container mounts
+  const wheelHandler = useRef<((e: WheelEvent) => void) | null>(null)
+  const scrollNodeRef = useRef<HTMLDivElement | null>(null)
+
+  // Keep the handler fresh
+  wheelHandler.current = (e: WheelEvent): void => {
+    if (currentPage !== 1) return
+    const canvas = canvasRef.current
+    const s = lastStamp.current
+    if (!canvas || !s) return
+
+    const rect = canvas.getBoundingClientRect()
+    const sx = canvas.width / rect.width
+    const sy = canvas.height / rect.height
+    const px = (e.clientX - rect.left) * sx
+    const py = (e.clientY - rect.top) * sy
+
+    // Hit test: rotate point into stamp's local space
+    const dx = px - s.cx
+    const dy = py - s.cy
+    const cos = Math.cos(-s.rad)
+    const sin = Math.sin(-s.rad)
+    const lx = dx * cos - dy * sin
+    const ly = dx * sin + dy * cos
+    if (Math.abs(lx) > s.w / 2 + 8 || Math.abs(ly) > s.h / 2 + 8) return
+
+    e.preventDefault()
+    e.stopPropagation()
+    const delta = e.deltaY > 0 ? 5 : -5
+    setStampRotation(useAppStore.getState().stampRotation + delta)
+  }
+
+  const scrollContainerRef = useCallback((node: HTMLDivElement | null) => {
+    // Detach from previous node
+    if (scrollNodeRef.current) {
+      scrollNodeRef.current.removeEventListener('wheel', (scrollNodeRef.current as unknown as Record<string, EventListener>).__wheelFn)
+    }
+    if (node) {
+      const fn = (e: WheelEvent): void => wheelHandler.current?.(e)
+      ;(node as unknown as Record<string, unknown>).__wheelFn = fn
+      node.addEventListener('wheel', fn, { passive: false })
+    }
+    scrollNodeRef.current = node
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   if (!currentPdfPath) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground">
-        Aucun document sélectionné
+        Aucun document selectionne
       </div>
     )
   }
@@ -137,8 +328,15 @@ export function PdfPreview(): React.JSX.Element {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto flex justify-center">
-        <canvas ref={canvasRef} className="max-w-full" />
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto flex justify-center">
+        <canvas
+          ref={canvasRef}
+          className="max-w-full"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        />
       </div>
     </div>
   )
