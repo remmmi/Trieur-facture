@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { FolderOpen, FolderOutput, Settings } from 'lucide-react'
 
 interface WelcomeScreenProps {
@@ -79,6 +80,9 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
       >
         <Settings className="h-5 w-5" />
       </Button>
+      <div className="absolute bottom-2 left-2">
+        <ThemeToggle />
+      </div>
 
       <div className="max-w-md w-full space-y-8 p-8">
         <div className="text-center">
