@@ -18,6 +18,7 @@ export interface ProcessData {
   stampY: number
   stampRotation: number
   customDest?: boolean
+  useQuarterMode?: boolean
 }
 
 export interface ProcessResult {
@@ -74,6 +75,9 @@ export interface Api {
   // Settings
   getIncludeAmount: () => Promise<boolean>
   setIncludeAmount: (value: boolean) => Promise<boolean>
+  getUseQuarterMode: () => Promise<boolean>
+  setUseQuarterMode: (value: boolean) => Promise<boolean>
+  checkFolderMode: (basePath: string, year: string) => Promise<'month' | 'quarter' | 'unknown'>
 
   // Plan comptable
   importPlanComptable: (csvContent: string) => Promise<{ numero: string; libelle: string }[]>

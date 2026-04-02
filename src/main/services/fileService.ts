@@ -67,3 +67,29 @@ export function setLastPaths(source: string | null, dest: string | null): void {
   if (source) lastSourcePath = source
   if (dest) lastDestPath = dest
 }
+
+const MONTH_NAMES = new Set(['01','02','03','04','05','06','07','08','09','10','11','12'])
+const QUARTER_NAMES = new Set(['T1','T2','T3','T4'])
+
+export async function checkFolderMode(
+  basePath: string,
+  year: string
+): Promise<'month' | 'quarter' | 'unknown'> {
+  try {
+    const yearPath = join(basePath, year)
+    const entries = await readdir(yearPath)
+    const dirs: string[] = []
+    for (const entry of entries) {
+      const fullPath = join(yearPath, entry)
+      const s = await stat(fullPath)
+      if (s.isDirectory()) dirs.push(entry)
+    }
+    const hasMonths = dirs.some((d) => MONTH_NAMES.has(d))
+    const hasQuarters = dirs.some((d) => QUARTER_NAMES.has(d))
+    if (hasQuarters && !hasMonths) return 'quarter'
+    if (hasMonths && !hasQuarters) return 'month'
+    return 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}

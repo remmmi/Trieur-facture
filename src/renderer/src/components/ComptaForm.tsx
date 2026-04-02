@@ -52,12 +52,14 @@ export function ComptaForm(): React.JSX.Element {
   } | null>(null)
 
   const [includeAmount, setIncludeAmount] = useState(false)
+  const [useQuarterMode, setUseQuarterMode] = useState(false)
   const [customDestFolder, setCustomDestFolder] = useState<string | null>(null)
   const currentFile = fileQueue[currentIndex]
 
   // Load settings
   useEffect(() => {
     window.api.getIncludeAmount().then(setIncludeAmount)
+    window.api.getUseQuarterMode().then(setUseQuarterMode)
   }, [])
 
   // Load supplier mappings
@@ -139,6 +141,14 @@ export function ComptaForm(): React.JSX.Element {
     setShowSupplierSuggestions(true)
   }
 
+  // --- Quarter helper ---
+  const getQuarterLabel = (monthNum: number): string => {
+    if (monthNum <= 3) return 'T1'
+    if (monthNum <= 6) return 'T2'
+    if (monthNum <= 9) return 'T3'
+    return 'T4'
+  }
+
   // --- Path preview ---
   const pathPreview = useMemo(() => {
     if (!destinationFolder || !currentFormData.date) return null
@@ -146,7 +156,10 @@ export function ComptaForm(): React.JSX.Element {
     if (isNaN(date.getTime())) return null
 
     const year = date.getFullYear()
-    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const monthNum = date.getMonth() + 1
+    const period = useQuarterMode
+      ? getQuarterLabel(monthNum)
+      : String(monthNum).padStart(2, '0')
     const parts = [currentFormData.fixedPart, currentFormData.adjustablePart]
     if (includeAmount && currentFormData.amount) {
       parts.push(currentFormData.amount)
@@ -155,7 +168,7 @@ export function ComptaForm(): React.JSX.Element {
     const fullFileName = fileName ? `${fileName}.pdf` : '(nom de fichier incomplet)'
     const effectiveBase = (customDestFolder || destinationFolder).replace(/\/+$/, '')
     const lastDir = effectiveBase.split(/[/\\]/).pop() || effectiveBase
-    const subPath = customDestFolder ? '' : `${year}/${month}`
+    const subPath = customDestFolder ? '' : `${year}/${period}`
     const full = subPath
       ? `${effectiveBase}/${subPath}/${fullFileName}`
       : `${effectiveBase}/${fullFileName}`
@@ -170,7 +183,8 @@ export function ComptaForm(): React.JSX.Element {
     currentFormData.fixedPart,
     currentFormData.adjustablePart,
     currentFormData.amount,
-    includeAmount
+    includeAmount,
+    useQuarterMode
   ])
 
   const dateLabel = currentFormData.date
@@ -210,8 +224,30 @@ export function ComptaForm(): React.JSX.Element {
       } else {
         const dateObj = new Date(currentFormData.date)
         const year = dateObj.getFullYear()
-        const month = String(dateObj.getMonth() + 1).padStart(2, '0')
-        destPath = `${effectiveBase}/${year}/${month}/${fileName}.pdf`
+        const monthNum = dateObj.getMonth() + 1
+        const period = useQuarterMode
+          ? getQuarterLabel(monthNum)
+          : String(monthNum).padStart(2, '0')
+        destPath = `${effectiveBase}/${year}/${period}/${fileName}.pdf`
+
+        // Detect folder mode conflict
+        const folderMode = await window.api.checkFolderMode(effectiveBase, String(year))
+        if (folderMode === 'month' && useQuarterMode) {
+          setIsProcessing(false)
+          setMessage({
+            type: 'error',
+            text: `Attention : le dossier ${year}/ contient des sous-dossiers mensuels (01, 02...) mais le mode trimestre est actif. Desactivez le mode trimestre dans les parametres ou forcez en cliquant a nouveau sur Valider.`
+          })
+          return
+        }
+        if (folderMode === 'quarter' && !useQuarterMode) {
+          setIsProcessing(false)
+          setMessage({
+            type: 'error',
+            text: `Attention : le dossier ${year}/ contient des sous-dossiers trimestriels (T1, T2...) mais le mode mensuel est actif. Activez le mode trimestre dans les parametres ou forcez en cliquant a nouveau sur Valider.`
+          })
+          return
+        }
       }
 
       // Check if destination file already exists
@@ -234,6 +270,7 @@ export function ComptaForm(): React.JSX.Element {
         baseFolder: customDestFolder || destinationFolder,
         fileName,
         customDest: !!customDestFolder,
+        useQuarterMode,
         stampX,
         stampY,
         stampRotation
