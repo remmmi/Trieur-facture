@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -18,6 +18,13 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
     setHasStarted,
     fileQueue
   } = useAppStore()
+
+  const [useQuarterMode, setUseQuarterMode] = useState(false)
+
+  // Load persisted settings on mount
+  useEffect(() => {
+    window.api.getUseQuarterMode().then(setUseQuarterMode)
+  }, [])
 
   // Load persisted folders on mount
   useEffect(() => {
@@ -125,6 +132,21 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
               )}
             </Button>
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer pl-1">
+            <input
+              type="checkbox"
+              checked={useQuarterMode}
+              onChange={async (e) => {
+                setUseQuarterMode(e.target.checked)
+                await window.api.setUseQuarterMode(e.target.checked)
+              }}
+              className="h-3.5 w-3.5 rounded border-input accent-primary"
+            />
+            <span className="text-xs text-muted-foreground">
+              Classement par trimestre (T1-T4)
+            </span>
+          </label>
 
           <Button className="w-full" disabled={!canStart} onClick={handleStart}>
             Commencer le tri

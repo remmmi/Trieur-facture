@@ -40,6 +40,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
   const [apiKeyDisplay, setApiKeyDisplay] = useState('')
   const [apiKeySaved, setApiKeySaved] = useState(false)
   const [includeAmount, setIncludeAmount] = useState(false)
+  const [useQuarterMode, setUseQuarterMode] = useState(false)
   const [mappings, setMappings] = useState<SupplierMapping[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<SupplierMapping>({
@@ -58,6 +59,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     setApiKeyDisplay(key)
     setMappings(supplierMappings)
     window.api.getIncludeAmount().then(setIncludeAmount)
+    window.api.getUseQuarterMode().then(setUseQuarterMode)
   }, [])
 
   useEffect(() => {
@@ -197,6 +199,30 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
               </label>
               <p className="text-xs text-muted-foreground pl-7">
                 Exemple : Fournisseur - FAC-001 - 186.57.pdf
+              </p>
+            </section>
+
+            {/* Classement mode */}
+            <section className="space-y-3">
+              <h2 className="text-base font-semibold">Classement</h2>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useQuarterMode}
+                  onChange={async (e) => {
+                    setUseQuarterMode(e.target.checked)
+                    await window.api.setUseQuarterMode(e.target.checked)
+                  }}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-sm">
+                  Classer par trimestre (T1, T2, T3, T4) au lieu du mois
+                </span>
+              </label>
+              <p className="text-xs text-muted-foreground pl-7">
+                {useQuarterMode
+                  ? 'Exemple : Comptabilite/2026/T2/Fournisseur - FAC-001.pdf'
+                  : 'Exemple : Comptabilite/2026/04/Fournisseur - FAC-001.pdf'}
               </p>
             </section>
           </div>

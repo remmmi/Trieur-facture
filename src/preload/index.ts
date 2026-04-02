@@ -38,6 +38,11 @@ const api = {
   getIncludeAmount: (): Promise<boolean> => ipcRenderer.invoke('get-include-amount'),
   setIncludeAmount: (value: boolean): Promise<boolean> =>
     ipcRenderer.invoke('set-include-amount', value),
+  getUseQuarterMode: (): Promise<boolean> => ipcRenderer.invoke('get-use-quarter-mode'),
+  setUseQuarterMode: (value: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('set-use-quarter-mode', value),
+  checkFolderMode: (basePath: string, year: string): Promise<'month' | 'quarter' | 'unknown'> =>
+    ipcRenderer.invoke('check-folder-mode', basePath, year),
 
   // Plan comptable
   importPlanComptable: (csvContent: string): Promise<{ numero: string; libelle: string }[]> =>

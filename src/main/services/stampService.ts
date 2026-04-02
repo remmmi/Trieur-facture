@@ -13,6 +13,14 @@ export interface ProcessData {
   stampY: number
   stampRotation: number
   customDest?: boolean
+  useQuarterMode?: boolean
+}
+
+function getQuarter(month: number): string {
+  if (month <= 3) return 'T1'
+  if (month <= 6) return 'T2'
+  if (month <= 9) return 'T3'
+  return 'T4'
 }
 
 export interface ProcessResult {
@@ -31,7 +39,8 @@ export async function processDocument(data: ProcessData): Promise<ProcessResult>
     stampX,
     stampY,
     stampRotation,
-    customDest
+    customDest,
+    useQuarterMode
   } = data
 
   // 1. Build destination path
@@ -41,8 +50,11 @@ export async function processDocument(data: ProcessData): Promise<ProcessResult>
   } else {
     const dateObj = new Date(date)
     const year = dateObj.getFullYear()
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0')
-    destFolder = join(baseFolder, String(year), month)
+    const monthNum = dateObj.getMonth() + 1
+    const subFolder = useQuarterMode
+      ? getQuarter(monthNum)
+      : String(monthNum).padStart(2, '0')
+    destFolder = join(baseFolder, String(year), subFolder)
   }
   await mkdir(destFolder, { recursive: true })
 

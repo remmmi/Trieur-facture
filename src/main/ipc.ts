@@ -4,7 +4,8 @@ import {
   selectFolder,
   scanFolder,
   selectDestinationFolder,
-  setLastPaths
+  setLastPaths,
+  checkFolderMode
 } from './services/fileService'
 import { ensurePdf } from './services/convertService'
 import { processDocument, runAiPostProcess, type ProcessData } from './services/stampService'
@@ -21,6 +22,8 @@ import {
   setLastFolders,
   getIncludeAmountInFilename,
   setIncludeAmountInFilename,
+  getUseQuarterMode,
+  setUseQuarterMode,
   importPlanComptable,
   getPlanComptable,
   resetPlanComptable,
@@ -163,6 +166,18 @@ export async function registerIpcHandlers(): Promise<void> {
     await setIncludeAmountInFilename(value)
     return true
   })
+
+  ipcMain.handle('get-use-quarter-mode', async () => getUseQuarterMode())
+  ipcMain.handle('set-use-quarter-mode', async (_event, value: boolean) => {
+    await setUseQuarterMode(value)
+    return true
+  })
+
+  // --- Folder mode detection ---
+  ipcMain.handle(
+    'check-folder-mode',
+    async (_event, basePath: string, year: string) => checkFolderMode(basePath, year)
+  )
 
   // --- Persisted folders ---
   ipcMain.handle('get-last-folders', async () => getLastFolders())
