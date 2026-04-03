@@ -4,3 +4,5 @@ out
 .DS_Store
 .eslintcache
 *.log*
+source_test/
+target_test/

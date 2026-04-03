@@ -6,6 +6,7 @@ import { Layout } from '@/components/Layout'
 import { SettingsPanel } from '@/components/SettingsPanel'
 import { Button } from '@/components/ui/button'
 import { CheckCircle } from 'lucide-react'
+import { parseIsoDate } from '@/lib/sanitize'
 
 function App(): React.JSX.Element {
   const { currentPdfPath, fileQueue, currentIndex, setCurrentPdfPath, hasStarted } = useAppStore()
@@ -37,7 +38,7 @@ function App(): React.JSX.Element {
             setFormData({
               ...(suggestion.accountNumber && { accountNumber: suggestion.accountNumber }),
               ...(suggestion.accountLabel && { accountLabel: suggestion.accountLabel }),
-              ...(suggestion.date && { date: suggestion.date }),
+              ...(suggestion.date && parseIsoDate(suggestion.date) && { date: suggestion.date }),
               ...(suggestion.fixedPart && { fixedPart: suggestion.fixedPart }),
               ...(suggestion.adjustablePart && { adjustablePart: suggestion.adjustablePart }),
               ...(suggestion.amount && { amount: suggestion.amount })

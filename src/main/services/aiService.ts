@@ -22,8 +22,14 @@ Reponds UNIQUEMENT avec le JSON, sans markdown, sans commentaire.
   "date": "La date du document au format YYYY-MM-DD. Chercher dans l'en-tete, le pied de page, ou pres du code-barres.",
   "totalHT": "Le montant HT (souvent apres la mention HT ou dans le recapitulatif TVA)",
   "totalTTC": "Le montant TTC final paye (le TOTAL en gras, ou le montant CB/paiement)",
-  "tvaAmount": "Le montant de TVA"
+  "tvaAmount": "Le montant de TVA",
+  "amountIsTTC": true
 }
+
+REGLE pour amountIsTTC :
+- Si tu as identifie un montant TTC fiable (total paye, montant CB, etc.), mets true.
+- Si tu n'as trouve qu'un montant HT (pas de TVA visible, ou mention explicite HT sans TTC), mets false.
+- En cas de doute, mets true (la plupart des factures affichent un TTC).
 
 REGLES pour invoiceNumber :
 - Si c'est un ticket de caisse (reconnaissable a : format etroit/vertical, liste d'articles avec prix unitaires, codes EAN/barres, sous-totaux, mention "carte bancaire"/"CB", ticket commercant, etc.) alors mets "ticket-caisse" dans invoiceNumber.
@@ -31,6 +37,35 @@ REGLES pour invoiceNumber :
 - S'il y a un numero de BVI, BVA ou numero de transaction, c'est un ticket de caisse.
 
 Si un champ n'est pas visible ou lisible, mets null.`
+
+export async function validateApiKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const testClient = new Anthropic({ apiKey })
+    await testClient.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1,
+      messages: [{ role: 'user', content: 'ok' }]
+    })
+    return { valid: true }
+  } catch (err: unknown) {
+    const error = err as { status?: number; message?: string; error?: { type?: string } }
+    if (error.status === 401) return { valid: false, error: 'Cle API invalide' }
+    if (
+      error.status === 400 &&
+      error.error?.type === 'invalid_request_error' &&
+      error.message?.includes('credit')
+    )
+      return { valid: false, error: 'Credit epuise' }
+    if (error.status === 429) return { valid: false, error: 'Rate limit atteint, reessayez' }
+    if (
+      error.message?.includes('fetch') ||
+      error.message?.includes('ENOTFOUND') ||
+      error.message?.includes('ECONNREFUSED')
+    )
+      return { valid: false, error: 'Erreur reseau' }
+    return { valid: false, error: 'Erreur API inconnue' }
+  }
+}
 
 export async function extractInvoiceData(pdfPath: string): Promise<AiSuggestion | null> {
   if (!client) return null
@@ -73,7 +108,8 @@ export async function extractInvoiceData(pdfPath: string): Promise<AiSuggestion 
       date: parsed.date || undefined,
       fixedPart: parsed.supplierName || undefined,
       adjustablePart: parsed.invoiceNumber || undefined,
-      amount: parsed.totalTTC || undefined,
+      amount: parsed.totalTTC || parsed.totalHT || undefined,
+      amountType: parsed.amountIsTTC === false ? 'ht' : 'ttc',
       rawText: textBlock.text
     }
   } catch (err: unknown) {

@@ -35,17 +35,17 @@
   --color-popover-foreground: #1c1b19;
   --color-primary: #1c1b19;
   --color-primary-foreground: #fafafa;
-  --color-secondary: #f0efed;
+  --color-secondary: #e8e7e5;
   --color-secondary-foreground: #1c1b19;
-  --color-muted: #f0efed;
-  --color-muted-foreground: #6b6a68;
-  --color-accent: #f0efed;
+  --color-muted: #ededeb;
+  --color-muted-foreground: #3d3b39;
+  --color-accent: #e8e7e5;
   --color-accent-foreground: #1c1b19;
   --color-destructive: #dc2626;
   --color-destructive-foreground: #fafafa;
-  --color-border: #e0dfdd;
-  --color-input: #e0dfdd;
-  --color-ring: #a3a3a3;
+  --color-border: #b5b4b1;
+  --color-input: #b5b4b1;
+  --color-ring: #78776f;
   --color-success: #16a34a;
 }
 
@@ -75,4 +75,48 @@ body {
 
 .ai-pulse {
   animation: ai-pulse 2s ease-in-out infinite;
+}
+
+@keyframes gap-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.gap-flash {
+  animation: gap-flash 1s ease-in-out 2;
+}
+
+/* Placeholders discrets */
+::placeholder {
+  color: var(--color-muted-foreground);
+  opacity: 0.45;
+}
+
+/* Custom radio buttons */
+input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-foreground);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+}
+
+input[type="radio"]:disabled {
+  border-color: var(--color-border);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input[type="radio"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-foreground);
 }

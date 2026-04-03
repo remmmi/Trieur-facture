@@ -7,6 +7,12 @@ export interface FileInfo {
   size: number
 }
 
+export interface VentilationLine {
+  accountNumber: string
+  accountLabel: string
+  amount: string
+}
+
 export interface ProcessData {
   sourcePath: string
   accountNumber: string
@@ -19,11 +25,14 @@ export interface ProcessData {
   stampRotation: number
   customDest?: boolean
   useQuarterMode?: boolean
+  ventilation?: VentilationLine[]
+  stampIncludeLabel?: boolean
 }
 
 export interface ProcessResult {
   success: boolean
   destinationPath: string
+  warning?: string
 }
 
 export interface AiSuggestion {
@@ -33,6 +42,7 @@ export interface AiSuggestion {
   fixedPart?: string
   adjustablePart?: string
   amount?: string
+  amountType?: 'ht' | 'ttc'
   confidence?: number
   rawText?: string
 }
@@ -62,6 +72,7 @@ export interface Api {
   getApiKey: () => Promise<string>
   setApiKey: (apiKey: string) => Promise<boolean>
   isAiConfigured: () => Promise<boolean>
+  validateApiKey: (key: string) => Promise<{ valid: boolean; error?: string }>
 
   // Supplier mappings
   getSupplierMappings: () => Promise<SupplierMapping[]>
@@ -75,6 +86,8 @@ export interface Api {
   // Settings
   getIncludeAmount: () => Promise<boolean>
   setIncludeAmount: (value: boolean) => Promise<boolean>
+  getStampIncludeLabel: () => Promise<boolean>
+  setStampIncludeLabel: (value: boolean) => Promise<boolean>
   getUseQuarterMode: () => Promise<boolean>
   setUseQuarterMode: (value: boolean) => Promise<boolean>
   checkFolderMode: (basePath: string, year: string) => Promise<'month' | 'quarter' | 'unknown'>

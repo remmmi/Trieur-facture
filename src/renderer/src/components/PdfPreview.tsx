@@ -16,7 +16,7 @@ interface StampInfo {
 }
 
 export function PdfPreview(): React.JSX.Element {
-  const { currentPdfPath, currentFormData, stampX, stampY, stampRotation, setStampPosition, setStampRotation } = useAppStore()
+  const { currentPdfPath, currentFormData, stampX, stampY, stampRotation, setStampPosition, setStampRotation, ventilationEnabled, ventilationLines } = useAppStore()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -24,6 +24,11 @@ export function PdfPreview(): React.JSX.Element {
   const [scale, setScale] = useState(1.2)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [stampIncludeLabel, setStampIncludeLabel] = useState(false)
+
+  useEffect(() => {
+    window.api.getStampIncludeLabel().then(setStampIncludeLabel)
+  }, [])
 
   // Drag state (not in store, local only)
   const dragging = useRef(false)
@@ -33,13 +38,67 @@ export function PdfPreview(): React.JSX.Element {
 
   const drawStamp = useCallback(
     (context: CanvasRenderingContext2D, canvasW: number, canvasH: number) => {
-      const { accountNumber, accountLabel } = useAppStore.getState().currentFormData
+      const state = useAppStore.getState()
+      const { ventilationEnabled: vEnabled, ventilationLines: vLines } = state
+
+      if (vEnabled && vLines.length > 0) {
+        // Mode ventile : N tampons empiles, pas de rotation
+        const pdfW = canvasW / scale
+        const N = Math.min(vLines.length, 8)
+        const fontSizeByWidth = Math.max(8, Math.min(12, pdfW / 30))
+        const maxBlockH = canvasH * 0.4
+        const fontSizeByHeight = Math.floor(maxBlockH / (N * 1.6))
+        const fontSize = Math.max(7, Math.min(fontSizeByWidth, fontSizeByHeight)) * scale
+        const padding = 4 * scale
+
+        context.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`
+
+        const stampTexts = vLines.slice(0, N).map(l => {
+          const label = stampIncludeLabel && l.accountLabel ? ` - ${l.accountLabel}` : ''
+          return `${l.accountNumber}${label} -> ${l.amount}`
+        })
+        const maxTextWidth = Math.max(...stampTexts.map(t => context.measureText(t).width))
+        const boxW = maxTextWidth + padding * 2
+        const lineH = fontSize + padding * 2
+
+        const { stampX: sx, stampY: sy } = state
+        const blockX = sx * canvasW
+        const blockY = sy * canvasH
+
+        stampTexts.forEach((text, i) => {
+          const y = blockY + i * lineH
+
+          context.fillStyle = 'rgba(255, 255, 255, 0.9)'
+          context.fillRect(blockX, y, boxW, lineH)
+          context.strokeStyle = 'rgba(150, 150, 150, 0.8)'
+          context.lineWidth = 0.5 * scale
+          context.strokeRect(blockX, y, boxW, lineH)
+          context.fillStyle = 'rgba(200, 0, 0, 1)'
+          context.fillText(text, blockX + padding, y + padding + fontSize * 0.85)
+        })
+
+        // Stocker le bloc entier pour le drag (hit-test)
+        const totalH = N * lineH
+        lastStamp.current = {
+          cx: blockX + boxW / 2,
+          cy: blockY + totalH / 2,
+          w: boxW,
+          h: totalH,
+          rad: 0
+        }
+        return
+      }
+
+      // --- Mode simple (code existant) ---
+      const { accountNumber, accountLabel } = state.currentFormData
       if (!accountNumber) {
         lastStamp.current = null
         return
       }
 
-      const stampText = `${accountNumber}${accountLabel ? ' - ' + accountLabel : ''}`
+      const stampText = stampIncludeLabel
+        ? `${accountNumber}${accountLabel ? ' - ' + accountLabel : ''}`
+        : accountNumber
       const pdfW = canvasW / scale
       const fontSize = Math.max(8, Math.min(12, pdfW / 30)) * scale
       const padding = 4 * scale
@@ -49,7 +108,7 @@ export function PdfPreview(): React.JSX.Element {
       const boxW = textWidth + padding * 2
       const boxH = fontSize + padding * 2
 
-      const { stampX: sx, stampY: sy, stampRotation: rot } = useAppStore.getState()
+      const { stampX: sx, stampY: sy, stampRotation: rot } = state
       const cx = sx * canvasW
       const cy = sy * canvasH
 
@@ -78,13 +137,20 @@ export function PdfPreview(): React.JSX.Element {
 
       lastStamp.current = { cx: centerX, cy: centerY, w: boxW, h: boxH, rad }
     },
-    [scale]
+    [scale, stampIncludeLabel]
   )
 
+  const activeRenderTaskRef = useRef<{ cancel: () => void } | null>(null)
   const renderPage = useCallback(
     async (doc: pdfjsLib.PDFDocumentProxy, pageNum: number) => {
       const canvas = canvasRef.current
       if (!canvas) return
+
+      // Cancel any in-flight render before starting a new one
+      if (activeRenderTaskRef.current) {
+        activeRenderTaskRef.current.cancel()
+        activeRenderTaskRef.current = null
+      }
 
       const page = await doc.getPage(pageNum)
       const viewport = page.getViewport({ scale })
@@ -98,7 +164,15 @@ export function PdfPreview(): React.JSX.Element {
       context.fillStyle = '#ffffff'
       context.fillRect(0, 0, canvas.width, canvas.height)
 
-      await page.render({ canvasContext: context, viewport, canvas } as never).promise
+      const renderTask = page.render({ canvasContext: context, viewport, canvas } as never)
+      activeRenderTaskRef.current = renderTask
+
+      try {
+        await renderTask.promise
+      } catch {
+        return // cancelled
+      }
+      activeRenderTaskRef.current = null
 
       if (pageNum === 1) {
         drawStamp(context, viewport.width, viewport.height)
@@ -124,6 +198,10 @@ export function PdfPreview(): React.JSX.Element {
         }
         setPdfDoc(doc)
         setTotalPages(doc.numPages)
+        if (doc.numPages === 0) {
+          setError('Le document PDF est vide (0 pages)')
+          return
+        }
         setCurrentPage(1)
         await renderPage(doc, 1)
       } catch (err) {
@@ -139,7 +217,8 @@ export function PdfPreview(): React.JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [currentPdfPath, renderPage])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPdfPath])
 
   useEffect(() => {
     if (pdfDoc && currentPage > 0) {
@@ -153,7 +232,7 @@ export function PdfPreview(): React.JSX.Element {
       renderPage(pdfDoc, 1)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFormData.accountNumber, currentFormData.accountLabel, stampX, stampY, stampRotation])
+  }, [currentFormData.accountNumber, currentFormData.accountLabel, stampX, stampY, stampRotation, ventilationEnabled, ventilationLines, stampIncludeLabel])
 
   // --- Drag handlers ---
   const getCanvasPos = (e: React.MouseEvent): { cx: number; cy: number } => {
@@ -228,6 +307,7 @@ export function PdfPreview(): React.JSX.Element {
 
   // Keep the handler fresh
   wheelHandler.current = (e: WheelEvent): void => {
+    if (useAppStore.getState().ventilationEnabled) return
     if (currentPage !== 1) return
     const canvas = canvasRef.current
     const s = lastStamp.current
@@ -328,10 +408,10 @@ export function PdfPreview(): React.JSX.Element {
         </div>
       </div>
 
-      <div ref={scrollContainerRef} className="flex-1 overflow-auto flex justify-center">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto flex justify-center items-start">
         <canvas
           ref={canvasRef}
-          className="max-w-full"
+          className="shrink-0"
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}

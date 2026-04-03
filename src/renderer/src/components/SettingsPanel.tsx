@@ -39,7 +39,10 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
   const [apiKey, setApiKey] = useState('')
   const [apiKeyDisplay, setApiKeyDisplay] = useState('')
   const [apiKeySaved, setApiKeySaved] = useState(false)
+  const [apiKeyValidating, setApiKeyValidating] = useState(false)
+  const [apiKeyStatus, setApiKeyStatus] = useState<{ valid: boolean; error?: string } | null>(null)
   const [includeAmount, setIncludeAmount] = useState(false)
+  const [stampIncludeLabel, setStampIncludeLabel] = useState(false)
   const [useQuarterMode, setUseQuarterMode] = useState(false)
   const [mappings, setMappings] = useState<SupplierMapping[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -59,6 +62,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     setApiKeyDisplay(key)
     setMappings(supplierMappings)
     window.api.getIncludeAmount().then(setIncludeAmount)
+    window.api.getStampIncludeLabel().then(setStampIncludeLabel)
     window.api.getUseQuarterMode().then(setUseQuarterMode)
   }, [])
 
@@ -68,12 +72,27 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
 
   const handleSaveApiKey = async (): Promise<void> => {
     if (!apiKey.trim()) return
-    await window.api.setApiKey(apiKey.trim())
+    const trimmedKey = apiKey.trim()
+
+    // Validate first
+    setApiKeyValidating(true)
+    setApiKeyStatus(null)
+    const result = await window.api.validateApiKey(trimmedKey)
+    setApiKeyValidating(false)
+    setApiKeyStatus(result)
+
+    if (!result.valid) return
+
+    // Save only if valid
+    await window.api.setApiKey(trimmedKey)
     setApiKeySaved(true)
     setApiKey('')
     const key = await window.api.getApiKey()
     setApiKeyDisplay(key)
-    setTimeout(() => setApiKeySaved(false), 2000)
+    setTimeout(() => {
+      setApiKeySaved(false)
+      setApiKeyStatus(null)
+    }, 3000)
   }
 
   const handleAddMapping = async (): Promise<void> => {
@@ -166,16 +185,36 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
                   type="password"
                   placeholder={apiKeyDisplay || 'sk-ant-...'}
                   value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
+                  onChange={(e) => {
+                    setApiKey(e.target.value)
+                    setApiKeyStatus(null)
+                    setApiKeySaved(false)
+                  }}
                   className="font-mono"
                 />
-                <Button onClick={handleSaveApiKey} disabled={!apiKey.trim()}>
-                  {apiKeySaved ? 'Sauvegardé !' : 'Sauvegarder'}
+                <Button
+                  onClick={handleSaveApiKey}
+                  disabled={!apiKey.trim() || apiKeyValidating}
+                >
+                  {apiKeyValidating
+                    ? 'Test...'
+                    : apiKeySaved
+                      ? 'OK'
+                      : 'Sauvegarder'}
                 </Button>
               </div>
-              {apiKeyDisplay && (
+              {apiKeyStatus && (
+                <p
+                  className={`text-xs font-medium ${apiKeyStatus.valid ? 'text-success' : 'text-destructive'}`}
+                >
+                  {apiKeyStatus.valid
+                    ? '[OK] Cle valide, sauvegardee'
+                    : `[ERREUR] ${apiKeyStatus.error}`}
+                </p>
+              )}
+              {apiKeyDisplay && !apiKeyStatus && (
                 <p className="text-xs text-muted-foreground font-mono">
-                  Clé actuelle : {apiKeyDisplay}
+                  Cle actuelle : {apiKeyDisplay}
                 </p>
               )}
             </section>
@@ -202,23 +241,59 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
               </p>
             </section>
 
-            {/* Classement mode */}
+            {/* Stamp label option */}
             <section className="space-y-3">
-              <h2 className="text-base font-semibold">Classement</h2>
+              <h2 className="text-base font-semibold">Tampon PDF</h2>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={useQuarterMode}
+                  checked={stampIncludeLabel}
                   onChange={async (e) => {
-                    setUseQuarterMode(e.target.checked)
-                    await window.api.setUseQuarterMode(e.target.checked)
+                    setStampIncludeLabel(e.target.checked)
+                    await window.api.setStampIncludeLabel(e.target.checked)
                   }}
                   className="h-4 w-4 rounded border-input accent-primary"
                 />
                 <span className="text-sm">
-                  Classer par trimestre (T1, T2, T3, T4) au lieu du mois
+                  Afficher le libelle du compte dans le tampon
                 </span>
               </label>
+              <p className="text-xs text-muted-foreground pl-7">
+                Desactive : 601100 -- Active : 601100 - Achats fournitures
+              </p>
+            </section>
+
+            {/* Classement mode */}
+            <section className="space-y-3">
+              <h2 className="text-base font-semibold">Granularite temporelle</h2>
+              <div className="flex flex-col gap-2 pl-1">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="granularite"
+                    checked={!useQuarterMode}
+                    onChange={async () => {
+                      setUseQuarterMode(false)
+                      await window.api.setUseQuarterMode(false)
+                    }}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span className="text-sm">Mois (01-12)</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="granularite"
+                    checked={useQuarterMode}
+                    onChange={async () => {
+                      setUseQuarterMode(true)
+                      await window.api.setUseQuarterMode(true)
+                    }}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span className="text-sm">Trimestre (T1-T4)</span>
+                </label>
+              </div>
               <p className="text-xs text-muted-foreground pl-7">
                 {useQuarterMode
                   ? 'Exemple : Comptabilite/2026/T2/Fournisseur - FAC-001.pdf'
@@ -276,21 +351,21 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
                       <div className="flex items-center justify-between">
                         <div className="flex-1 grid grid-cols-4 gap-4 text-sm">
                           <div>
-                            <span className="text-xs text-muted-foreground block">Facture</span>
+                            <span className="text-sm text-muted-foreground block">Facture</span>
                             <span className="truncate block">{mapping.invoiceName}</span>
                           </div>
                           <div>
-                            <span className="text-xs text-muted-foreground block">Fichier</span>
+                            <span className="text-sm text-muted-foreground block">Fichier</span>
                             <span className="font-medium">{mapping.shortName}</span>
                           </div>
                           <div>
-                            <span className="text-xs text-muted-foreground block">Compte</span>
-                            <span className="font-mono">{mapping.defaultAccount || '—'}</span>
+                            <span className="text-sm text-muted-foreground block">Compte</span>
+                            <span className="font-mono">{mapping.defaultAccount || '---'}</span>
                           </div>
                           <div>
-                            <span className="text-xs text-muted-foreground block">Libellé</span>
+                            <span className="text-sm text-muted-foreground block">Libelle</span>
                             <span className="truncate block">
-                              {mapping.defaultAccountLabel || '—'}
+                              {mapping.defaultAccountLabel || '---'}
                             </span>
                           </div>
                         </div>
@@ -423,7 +498,7 @@ function PlanComptableTab(): React.JSX.Element {
 
       {/* Preview table */}
       <div className="rounded-md border border-border overflow-hidden">
-        <div className="grid grid-cols-[100px_1fr] text-xs font-medium bg-muted/50 px-3 py-2 border-b border-border">
+        <div className="grid grid-cols-[100px_1fr] text-sm font-medium bg-muted/50 px-3 py-2 border-b border-border">
           <span>Numero</span>
           <span>Libelle</span>
         </div>
@@ -476,7 +551,7 @@ function FolderSettings(): React.JSX.Element {
       </div>
       <div className="space-y-2">
         <div className="space-y-1">
-          <Label className="text-xs">Dossier source (factures)</Label>
+          <Label className="text-sm">Dossier source (factures)</Label>
           <Button
             variant="outline"
             className="w-full justify-start gap-2"
@@ -491,7 +566,7 @@ function FolderSettings(): React.JSX.Element {
           </Button>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs">Dossier destination (comptabilite)</Label>
+          <Label className="text-sm">Dossier destination (comptabilite)</Label>
           <Button
             variant="outline"
             className="w-full justify-start gap-2"
