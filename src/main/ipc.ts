@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { readFile, writeFile, access } from 'fs/promises'
+import { readFile, writeFile, access, unlink } from 'fs/promises'
+import { tmpdir } from 'os'
 import {
   selectFolder,
   scanFolder,
@@ -9,7 +10,12 @@ import {
 } from './services/fileService'
 import { ensurePdf } from './services/convertService'
 import { processDocument, runAiPostProcess, type ProcessData } from './services/stampService'
-import { extractInvoiceData, initializeAiService, isAiConfigured } from './services/aiService'
+import {
+  extractInvoiceData,
+  initializeAiService,
+  isAiConfigured,
+  validateApiKey
+} from './services/aiService'
 import {
   getSupplierMappings,
   addSupplierMapping,
@@ -22,6 +28,8 @@ import {
   setLastFolders,
   getIncludeAmountInFilename,
   setIncludeAmountInFilename,
+  getStampIncludeLabel,
+  setStampIncludeLabel,
   getUseQuarterMode,
   setUseQuarterMode,
   importPlanComptable,
@@ -58,6 +66,12 @@ export async function registerIpcHandlers(): Promise<void> {
   ipcMain.handle('process-document', async (_event, data: ProcessData) => {
     const result = await processDocument(data)
     await runAiPostProcess(data, result)
+
+    // Cleanup temp file from DOCX conversion
+    if (data.sourcePath.startsWith(tmpdir()) && data.sourcePath.includes('trieur-facture-')) {
+      unlink(data.sourcePath).catch(() => {})
+    }
+
     return result
   })
 
@@ -100,6 +114,8 @@ export async function registerIpcHandlers(): Promise<void> {
   })
 
   ipcMain.handle('is-ai-configured', async () => isAiConfigured())
+
+  ipcMain.handle('validate-api-key', async (_event, key: string) => validateApiKey(key))
 
   // --- Supplier mappings ---
   ipcMain.handle('get-supplier-mappings', async () => getSupplierMappings())
@@ -164,6 +180,11 @@ export async function registerIpcHandlers(): Promise<void> {
   ipcMain.handle('get-include-amount', async () => getIncludeAmountInFilename())
   ipcMain.handle('set-include-amount', async (_event, value: boolean) => {
     await setIncludeAmountInFilename(value)
+    return true
+  })
+  ipcMain.handle('get-stamp-include-label', async () => getStampIncludeLabel())
+  ipcMain.handle('set-stamp-include-label', async (_event, value: boolean) => {
+    await setStampIncludeLabel(value)
     return true
   })
 

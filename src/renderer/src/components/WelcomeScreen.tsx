@@ -133,20 +133,35 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
             </Button>
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer pl-1">
-            <input
-              type="checkbox"
-              checked={useQuarterMode}
-              onChange={async (e) => {
-                setUseQuarterMode(e.target.checked)
-                await window.api.setUseQuarterMode(e.target.checked)
-              }}
-              className="h-3.5 w-3.5 rounded border-input accent-primary"
-            />
-            <span className="text-xs text-muted-foreground">
-              Classement par trimestre (T1-T4)
-            </span>
-          </label>
+          <div className="flex items-center gap-4 pl-1">
+            <span className="text-sm text-muted-foreground">Granularite :</span>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="radio"
+                name="granularite-welcome"
+                checked={!useQuarterMode}
+                onChange={async () => {
+                  setUseQuarterMode(false)
+                  await window.api.setUseQuarterMode(false)
+                }}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              <span className="text-sm text-muted-foreground">Mois</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="radio"
+                name="granularite-welcome"
+                checked={useQuarterMode}
+                onChange={async () => {
+                  setUseQuarterMode(true)
+                  await window.api.setUseQuarterMode(true)
+                }}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              <span className="text-sm text-muted-foreground">Trimestre</span>
+            </label>
+          </div>
 
           <Button className="w-full" disabled={!canStart} onClick={handleStart}>
             Commencer le tri

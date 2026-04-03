@@ -10,7 +10,7 @@ const api = {
   readFile: (filePath: string): Promise<Uint8Array> => ipcRenderer.invoke('read-file', filePath),
 
   // Document processing
-  processDocument: (data: unknown): Promise<{ success: boolean; destinationPath: string }> =>
+  processDocument: (data: unknown): Promise<{ success: boolean; destinationPath: string; warning?: string }> =>
     ipcRenderer.invoke('process-document', data),
 
   // AI OCR
@@ -20,6 +20,8 @@ const api = {
   getApiKey: (): Promise<string> => ipcRenderer.invoke('get-api-key'),
   setApiKey: (apiKey: string): Promise<boolean> => ipcRenderer.invoke('set-api-key', apiKey),
   isAiConfigured: (): Promise<boolean> => ipcRenderer.invoke('is-ai-configured'),
+  validateApiKey: (key: string): Promise<{ valid: boolean; error?: string }> =>
+    ipcRenderer.invoke('validate-api-key', key),
 
   // Supplier mappings
   getSupplierMappings: (): Promise<unknown[]> => ipcRenderer.invoke('get-supplier-mappings'),
@@ -38,6 +40,9 @@ const api = {
   getIncludeAmount: (): Promise<boolean> => ipcRenderer.invoke('get-include-amount'),
   setIncludeAmount: (value: boolean): Promise<boolean> =>
     ipcRenderer.invoke('set-include-amount', value),
+  getStampIncludeLabel: (): Promise<boolean> => ipcRenderer.invoke('get-stamp-include-label'),
+  setStampIncludeLabel: (value: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('set-stamp-include-label', value),
   getUseQuarterMode: (): Promise<boolean> => ipcRenderer.invoke('get-use-quarter-mode'),
   setUseQuarterMode: (value: boolean): Promise<boolean> =>
     ipcRenderer.invoke('set-use-quarter-mode', value),

@@ -36,6 +36,7 @@ interface AppState {
   fileQueue: FileInfo[]
   currentIndex: number
   setFileQueue: (files: FileInfo[]) => void
+  setCurrentIndex: (index: number) => void
   nextFile: () => void
   prevFile: () => void
   removeCurrentFile: () => void
@@ -67,6 +68,12 @@ interface AppState {
   // AI extracted supplier name (for auto-learn mapping)
   aiExtractedSupplier: string | null
   setAiExtractedSupplier: (name: string | null) => void
+
+  // Ventilation
+  ventilationEnabled: boolean
+  setVentilationEnabled: (value: boolean) => void
+  ventilationLines: { accountNumber: string; accountLabel: string; amount: string }[]
+  setVentilationLines: (lines: { accountNumber: string; accountLabel: string; amount: string }[]) => void
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -78,16 +85,40 @@ export const useAppStore = create<AppState>((set, get) => ({
   fileQueue: [],
   currentIndex: 0,
   setFileQueue: (files) => set({ fileQueue: files, currentIndex: 0 }),
+  setCurrentIndex: (index) => {
+    const { fileQueue } = get()
+    if (index >= 0 && index < fileQueue.length) {
+      set({
+        currentIndex: index,
+        currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) },
+        aiExtractedSupplier: null,
+        ventilationEnabled: false,
+        ventilationLines: []
+      })
+    }
+  },
   nextFile: () => {
     const { currentIndex, fileQueue } = get()
     if (currentIndex < fileQueue.length - 1) {
-      set({ currentIndex: currentIndex + 1 })
+      set({
+        currentIndex: currentIndex + 1,
+        currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) },
+        aiExtractedSupplier: null,
+        ventilationEnabled: false,
+        ventilationLines: []
+      })
     }
   },
   prevFile: () => {
     const { currentIndex } = get()
     if (currentIndex > 0) {
-      set({ currentIndex: currentIndex - 1 })
+      set({
+        currentIndex: currentIndex - 1,
+        currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) },
+        aiExtractedSupplier: null,
+        ventilationEnabled: false,
+        ventilationLines: []
+      })
     }
   },
   removeCurrentFile: () => {
@@ -105,7 +136,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetForm: () =>
     set({
       currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) },
-      aiExtractedSupplier: null
+      aiExtractedSupplier: null,
+      ventilationEnabled: false,
+      ventilationLines: []
     }),
 
   currentPdfPath: null,
@@ -120,12 +153,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   aiProcessing: false,
   setAiProcessing: (value) => set({ aiProcessing: value }),
 
-  stampX: 0,
-  stampY: 0,
-  stampRotation: 0,
+  stampX: 0.03,
+  stampY: 0.93,
+  stampRotation: 5,
   setStampPosition: (x, y) => set({ stampX: x, stampY: y }),
   setStampRotation: (degrees) => set({ stampRotation: degrees }),
 
   aiExtractedSupplier: null,
-  setAiExtractedSupplier: (name) => set({ aiExtractedSupplier: name })
+  setAiExtractedSupplier: (name) => set({ aiExtractedSupplier: name }),
+
+  ventilationEnabled: false,
+  setVentilationEnabled: (value) => set({ ventilationEnabled: value }),
+  ventilationLines: [],
+  setVentilationLines: (lines) => set({ ventilationLines: lines })
 }))

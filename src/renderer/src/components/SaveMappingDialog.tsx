@@ -34,7 +34,13 @@ export function SaveMappingDialog({
   })
 
   return (
-    <div className="rounded-md border border-border bg-card p-4 space-y-3 shadow-lg">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onDismiss()
+      }}
+    >
+    <div className="rounded-md border border-border bg-card p-4 space-y-3 shadow-lg w-full max-w-md mx-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <BookmarkPlus className="h-4 w-4 text-primary" />
@@ -97,6 +103,7 @@ export function SaveMappingDialog({
           Enregistrer
         </Button>
       </div>
+    </div>
     </div>
   )
 }

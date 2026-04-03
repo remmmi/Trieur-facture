@@ -26,6 +26,7 @@ export interface AppConfig {
   customPlanComptable: PlanComptableEntry[] | null
   includeAmountInFilename: boolean
   useQuarterMode: boolean
+  stampIncludeLabel: boolean
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -35,7 +36,8 @@ const DEFAULT_CONFIG: AppConfig = {
   lastDestinationFolder: null,
   customPlanComptable: null,
   includeAmountInFilename: false,
-  useQuarterMode: false
+  useQuarterMode: false,
+  stampIncludeLabel: false
 }
 
 function getConfigPath(): string {
@@ -237,6 +239,17 @@ export async function getIncludeAmountInFilename(): Promise<boolean> {
 export async function setIncludeAmountInFilename(value: boolean): Promise<void> {
   const config = await loadConfig()
   config.includeAmountInFilename = value
+  await saveConfig(config)
+}
+
+export async function getStampIncludeLabel(): Promise<boolean> {
+  const config = await loadConfig()
+  return config.stampIncludeLabel ?? false
+}
+
+export async function setStampIncludeLabel(value: boolean): Promise<void> {
+  const config = await loadConfig()
+  config.stampIncludeLabel = value
   await saveConfig(config)
 }
 
