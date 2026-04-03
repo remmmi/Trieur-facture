@@ -135,7 +135,7 @@ Trois sub-agents specialises dans `.claude/agents/` :
 - FileSidebar : panneau lateral gauche avec liste cliquable de tous les fichiers
 
 ## Donnees de test
-- source_test.zip et target_test.zip dans le repo (proteges par mot de passe)
+- source_test.zip et target_test.zip en local (proteges par mot de passe, pas dans le repo)
 - 12 factures PDF dont un ticket de caisse Leroy Merlin
 
 ## Workflow de dev
