@@ -6,3 +6,4 @@ out
 *.log*
 source_test/
 target_test/
+electron.vite.config.*.mjs
