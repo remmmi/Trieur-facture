@@ -135,9 +135,8 @@ Trois sub-agents specialises dans `.claude/agents/` :
 - FileSidebar : panneau lateral gauche avec liste cliquable de tous les fichiers
 
 ## Donnees de test
-- source_test.zip et target_test.zip dans le repo (mot de passe : john95ft2)
+- source_test.zip et target_test.zip dans le repo (proteges par mot de passe)
 - 12 factures PDF dont un ticket de caisse Leroy Merlin
-- Dezipper a la racine : `unzip -P john95ft2 source_test.zip && unzip -P john95ft2 target_test.zip`
 
 ## Workflow de dev
 - L'utilisateur dit "app" pour lancer `npm run dev` en background
