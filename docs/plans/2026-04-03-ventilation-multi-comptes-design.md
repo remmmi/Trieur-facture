@@ -1,7 +1,7 @@
 # Ventilation multi-comptes -- Design Document
 
 **Date** : 2026-04-03
-**Statut** : Valide
+**Statut** : Implemente (v0.2.0)
 **Auteur** : Claude Code + utilisateur
 
 ## Probleme
