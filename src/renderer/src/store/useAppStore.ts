@@ -14,6 +14,7 @@ export interface FormData {
   fixedPart: string
   adjustablePart: string
   amount: string
+  paid: string
 }
 
 const defaultFormData: FormData = {
@@ -22,7 +23,8 @@ const defaultFormData: FormData = {
   date: new Date().toISOString().slice(0, 10),
   fixedPart: '',
   adjustablePart: '',
-  amount: ''
+  amount: '',
+  paid: ''
 }
 
 interface AppState {

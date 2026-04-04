@@ -383,7 +383,8 @@ export function ComptaForm(): React.JSX.Element {
         stampY,
         stampRotation,
         ventilation,
-        stampIncludeLabel
+        stampIncludeLabel,
+        paid: currentFormData.paid || undefined
       })
 
       if (result.success) {
@@ -741,6 +742,17 @@ export function ComptaForm(): React.JSX.Element {
         {highlightAdjustable && message?.type === 'warning' && message.text.includes('existe deja') && (
           <p className="text-xs text-amber-500">{message.text}</p>
         )}
+      </div>
+
+      {/* Paid stamp */}
+      <div className="space-y-2">
+        <Label htmlFor="paid">Paye (tampon bleu optionnel)</Label>
+        <Input
+          id="paid"
+          placeholder="Ex: CB 04/2026, Cheque 12345..."
+          value={currentFormData.paid}
+          onChange={(e) => setFormData({ paid: e.target.value })}
+        />
       </div>
 
       {/* Path preview - clickable to change destination */}

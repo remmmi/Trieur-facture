@@ -27,6 +27,7 @@ export interface ProcessData {
   useQuarterMode?: boolean
   ventilation?: VentilationLine[]
   stampIncludeLabel?: boolean
+  paid?: string
 }
 
 export interface ProcessResult {
