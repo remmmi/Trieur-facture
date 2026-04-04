@@ -3,9 +3,17 @@ import { readFile } from 'fs/promises'
 import type { AiSuggestion } from './stampService'
 
 let client: Anthropic | null = null
+let currentAbortController: AbortController | null = null
 
 export function initializeAiService(apiKey: string): void {
   client = new Anthropic({ apiKey })
+}
+
+export function abortCurrentExtraction(): void {
+  if (currentAbortController) {
+    currentAbortController.abort()
+    currentAbortController = null
+  }
 }
 
 export function isAiConfigured(): boolean {
@@ -71,32 +79,37 @@ export async function extractInvoiceData(pdfPath: string): Promise<AiSuggestion 
   if (!client) return null
 
   try {
+    currentAbortController = new AbortController()
+
     const pdfBuffer = await readFile(pdfPath)
     const base64 = pdfBuffer.toString('base64')
 
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: base64
+    const response = await client.messages.create(
+      {
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'document',
+                source: {
+                  type: 'base64',
+                  media_type: 'application/pdf',
+                  data: base64
+                }
+              },
+              {
+                type: 'text',
+                text: EXTRACTION_PROMPT
               }
-            },
-            {
-              type: 'text',
-              text: EXTRACTION_PROMPT
-            }
-          ]
-        }
-      ]
-    })
+            ]
+          }
+        ]
+      },
+      { signal: currentAbortController.signal }
+    )
 
     const textBlock = response.content.find((b) => b.type === 'text')
     if (!textBlock || textBlock.type !== 'text') return null
@@ -113,6 +126,11 @@ export async function extractInvoiceData(pdfPath: string): Promise<AiSuggestion 
       rawText: textBlock.text
     }
   } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      currentAbortController = null
+      return null
+    }
+
     console.error('AI extraction error:', err)
 
     const error = err as { status?: number; message?: string; error?: { type?: string } }
@@ -148,5 +166,7 @@ export async function extractInvoiceData(pdfPath: string): Promise<AiSuggestion 
 
     // JSON parse or other non-API errors: return null silently
     return null
+  } finally {
+    currentAbortController = null
   }
 }

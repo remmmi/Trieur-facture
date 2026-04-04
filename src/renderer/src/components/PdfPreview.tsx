@@ -196,6 +196,15 @@ export function PdfPreview(): React.JSX.Element {
           doc.destroy()
           return
         }
+        // Auto-fit: calculate scale to fill container width
+        const firstPage = await doc.getPage(1)
+        const unscaledViewport = firstPage.getViewport({ scale: 1 })
+        const container = containerRef.current
+        if (container) {
+          const containerWidth = container.clientWidth - 32 // padding
+          const fitScale = containerWidth / unscaledViewport.width
+          setScale(Math.max(0.5, Math.min(3, fitScale)))
+        }
         setPdfDoc(doc)
         setTotalPages(doc.numPages)
         if (doc.numPages === 0) {

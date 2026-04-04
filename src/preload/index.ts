@@ -15,6 +15,7 @@ const api = {
 
   // AI OCR
   aiPreProcess: (pdfPath: string): Promise<unknown> => ipcRenderer.invoke('ai-pre-process', pdfPath),
+  aiAbort: (): Promise<boolean> => ipcRenderer.invoke('ai-abort'),
 
   // Settings
   getApiKey: (): Promise<string> => ipcRenderer.invoke('get-api-key'),

@@ -67,6 +67,7 @@ export interface Api {
 
   // AI OCR
   aiPreProcess: (pdfPath: string) => Promise<AiSuggestion | null>
+  aiAbort: () => Promise<boolean>
 
   // Settings
   getApiKey: () => Promise<string>
