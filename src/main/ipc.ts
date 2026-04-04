@@ -14,7 +14,8 @@ import {
   extractInvoiceData,
   initializeAiService,
   isAiConfigured,
-  validateApiKey
+  validateApiKey,
+  abortCurrentExtraction
 } from './services/aiService'
 import {
   getSupplierMappings,
@@ -116,6 +117,11 @@ export async function registerIpcHandlers(): Promise<void> {
   ipcMain.handle('is-ai-configured', async () => isAiConfigured())
 
   ipcMain.handle('validate-api-key', async (_event, key: string) => validateApiKey(key))
+
+  ipcMain.handle('ai-abort', async () => {
+    abortCurrentExtraction()
+    return true
+  })
 
   // --- Supplier mappings ---
   ipcMain.handle('get-supplier-mappings', async () => getSupplierMappings())

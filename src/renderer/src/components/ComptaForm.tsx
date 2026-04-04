@@ -520,6 +520,19 @@ export function ComptaForm(): React.JSX.Element {
           >
             <Sparkles className={`h-4 w-4 ${aiProcessing ? 'ai-pulse' : 'text-fuchsia-500'}`} />
           </button>
+          {aiProcessing && (
+            <button
+              type="button"
+              className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+              onClick={async () => {
+                await window.api.aiAbort()
+                setAiProcessing(false)
+              }}
+              title="Arreter l'analyse IA"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
         {currentFile && (
           <span className="text-sm text-muted-foreground truncate max-w-[200px]">
