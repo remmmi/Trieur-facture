@@ -161,9 +161,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   aiProcessing: false,
   setAiProcessing: (value) => set({ aiProcessing: value }),
 
-  stampX: 0.03,
-  stampY: 0.93,
-  stampRotation: 5,
+  stampX: 0.35,
+  stampY: 0.05,
+  stampRotation: -5,
   setStampPosition: (x, y) => set({ stampX: x, stampY: y }),
   setStampRotation: (degrees) => set({ stampRotation: degrees }),
 

@@ -113,6 +113,10 @@ export interface Api {
   // Persisted folders
   getLastFolders: () => Promise<{ source: string | null; destination: string | null }>
   setLastFolders: (source: string | null, destination: string | null) => Promise<boolean>
+
+  // Window close
+  onCloseRequested: (callback: () => void) => void
+  forceQuit: () => Promise<void>
 }
 
 declare global {

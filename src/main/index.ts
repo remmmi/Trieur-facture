@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -18,8 +18,22 @@ function createWindow(): void {
     }
   })
 
+  let forceClose = false
+
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  mainWindow.on('close', (e) => {
+    if (!forceClose) {
+      e.preventDefault()
+      mainWindow.webContents.send('close-requested')
+    }
+  })
+
+  ipcMain.handle('force-quit', () => {
+    forceClose = true
+    mainWindow.close()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {

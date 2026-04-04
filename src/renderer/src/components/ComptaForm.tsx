@@ -180,7 +180,16 @@ export function ComptaForm(): React.JSX.Element {
     const period = useQuarterMode
       ? getQuarterLabel(monthNum)
       : String(monthNum).padStart(2, '0')
-    const parts = [currentFormData.fixedPart, currentFormData.adjustablePart]
+    const parts: string[] = []
+    if (prefixAccount) {
+      if (ventilationEnabled) {
+        const lines = splitLinesRef.current.filter(l => l.accountNumber)
+        if (lines.length > 0) parts.push(lines.map(l => l.accountNumber).join('+'))
+      } else if (currentFormData.accountNumber) {
+        parts.push(currentFormData.accountNumber)
+      }
+    }
+    parts.push(currentFormData.fixedPart, currentFormData.adjustablePart)
     if (includeAmount && currentFormData.amount) {
       parts.push(currentFormData.amount)
     }
@@ -205,7 +214,10 @@ export function ComptaForm(): React.JSX.Element {
     currentFormData.fixedPart,
     currentFormData.adjustablePart,
     currentFormData.amount,
+    currentFormData.accountNumber,
     includeAmount,
+    prefixAccount,
+    ventilationEnabled,
     useQuarterMode
   ])
 

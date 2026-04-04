@@ -52,15 +52,19 @@ function App(): React.JSX.Element {
 
   // Warn on close if there are ignored files
   useEffect(() => {
-    const handler = (e: BeforeUnloadEvent): void => {
+    // Listen for close confirmation request from main process
+    const handleCloseCheck = async (): Promise<void> => {
       const { ignoredFiles } = useAppStore.getState()
       if (ignoredFiles.length > 0) {
-        e.preventDefault()
-        e.returnValue = `${ignoredFiles.length} fichier(s) ignore(s) restent dans le dossier source.`
+        const ok = window.confirm(`${ignoredFiles.length} fichier(s) ignore(s) restent dans le dossier source.\n\nFermer quand meme ?`)
+        if (ok) {
+          await window.api.forceQuit()
+        }
+      } else {
+        await window.api.forceQuit()
       }
     }
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
+    window.api.onCloseRequested(handleCloseCheck)
   }, [])
 
   // Load custom plan comptable on startup
