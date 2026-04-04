@@ -334,6 +334,26 @@ export function PdfPreview(): React.JSX.Element {
     setStampRotation(useAppStore.getState().stampRotation + delta)
   }
 
+  const containerRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    let resizeTimer: ReturnType<typeof setTimeout>
+    const observer = new ResizeObserver(() => {
+      clearTimeout(resizeTimer)
+      resizeTimer = setTimeout(() => {
+        if (pdfDoc && currentPage > 0) {
+          renderPage(pdfDoc, currentPage)
+        }
+      }, 100)
+    })
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      clearTimeout(resizeTimer)
+    }
+  }, [pdfDoc, currentPage, renderPage])
+
   const scrollContainerRef = useCallback((node: HTMLDivElement | null) => {
     // Detach from previous node
     if (scrollNodeRef.current) {
@@ -408,15 +428,17 @@ export function PdfPreview(): React.JSX.Element {
         </div>
       </div>
 
-      <div ref={scrollContainerRef} className="flex-1 overflow-auto flex justify-center items-start">
-        <canvas
-          ref={canvasRef}
-          className="shrink-0"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        />
+      <div ref={containerRef} className="flex-1 flex flex-col">
+        <div ref={scrollContainerRef} className="flex-1 overflow-auto flex justify-center items-start">
+          <canvas
+            ref={canvasRef}
+            className="shrink-0"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          />
+        </div>
       </div>
     </div>
   )
