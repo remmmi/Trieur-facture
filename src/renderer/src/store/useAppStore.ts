@@ -74,6 +74,10 @@ interface AppState {
   setVentilationEnabled: (value: boolean) => void
   ventilationLines: { accountNumber: string; accountLabel: string; amount: string }[]
   setVentilationLines: (lines: { accountNumber: string; accountLabel: string; amount: string }[]) => void
+
+  // File loading state (ensurePdf in progress)
+  fileLoading: boolean
+  setFileLoading: (value: boolean) => void
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -165,5 +169,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   ventilationEnabled: false,
   setVentilationEnabled: (value) => set({ ventilationEnabled: value }),
   ventilationLines: [],
-  setVentilationLines: (lines) => set({ ventilationLines: lines })
+  setVentilationLines: (lines) => set({ ventilationLines: lines }),
+
+  fileLoading: false,
+  setFileLoading: (value) => set({ fileLoading: value })
 }))
