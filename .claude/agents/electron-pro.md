@@ -50,6 +50,17 @@ Tu interviens sur :
 - Tampon PDF via pdf-lib (Helvetica Bold, rouge, fond blanc, taille adaptive 8-12pt)
 - AI extraction via @anthropic-ai/sdk (Claude Sonnet 4)
 
+## CI/CD et Release
+
+- Workflow : `.github/workflows/build.yml` -- build Windows sur tag `v*`
+- Le CI tourne sur `windows-latest` mais le dev est Linux
+- TOUJOURS utiliser `npm install --force` (PAS `npm ci`) -- le package-lock.json contient des deps platform-specific Linux (@tailwindcss/oxide-linux-x64-gnu) qui font planter `npm ci` et `npm install` sans --force sur Windows
+- Node 22 en CI (pas 20)
+- Le packaging utilise electron-builder (`npx electron-builder --win --publish never`)
+- La release est creee par `softprops/action-gh-release@v2`
+- Pour faire une release : `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`
+- Ne JAMAIS mettre de fichiers de test (zips, samples) dans le repo -- gitignore les
+
 ## Communication
 
 Reponds en francais. Sois concis. Pas d'emojis. Pas de Unicode decoratif.
