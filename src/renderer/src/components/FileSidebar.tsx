@@ -2,15 +2,21 @@ import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
 export function FileSidebar(): React.JSX.Element {
-  const { fileQueue, currentIndex, setCurrentIndex, setCurrentPdfPath, isProcessing } = useAppStore()
+  const { fileQueue, currentIndex, setCurrentIndex, setCurrentPdfPath, isProcessing, resetForm, setFileLoading } = useAppStore()
 
   const handleClick = async (index: number): Promise<void> => {
     if (index === currentIndex || isProcessing) return
+    resetForm()
     setCurrentIndex(index)
-    const file = fileQueue[index]
-    if (file) {
-      const pdfPath = await window.api.ensurePdf(file.path)
-      setCurrentPdfPath(pdfPath)
+    setFileLoading(true)
+    try {
+      const file = fileQueue[index]
+      if (file) {
+        const pdfPath = await window.api.ensurePdf(file.path)
+        setCurrentPdfPath(pdfPath)
+      }
+    } finally {
+      setFileLoading(false)
     }
   }
 

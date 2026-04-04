@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, ZoomIn, ZoomOut } from 'lucide-react'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
@@ -16,7 +16,7 @@ interface StampInfo {
 }
 
 export function PdfPreview(): React.JSX.Element {
-  const { currentPdfPath, currentFormData, stampX, stampY, stampRotation, setStampPosition, setStampRotation, ventilationEnabled, ventilationLines } = useAppStore()
+  const { currentPdfPath, currentFormData, stampX, stampY, stampRotation, setStampPosition, setStampRotation, ventilationEnabled, ventilationLines, fileLoading } = useAppStore()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -402,7 +402,12 @@ export function PdfPreview(): React.JSX.Element {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {fileLoading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-[2px]">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      )}
       <div className="flex items-center justify-between pb-2 border-b border-border mb-2">
         <div className="flex items-center gap-1">
           <Button

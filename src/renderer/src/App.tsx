@@ -9,7 +9,7 @@ import { AlertTriangle, CheckCircle, Sparkles } from 'lucide-react'
 import { parseIsoDate } from '@/lib/sanitize'
 
 function App(): React.JSX.Element {
-  const { currentPdfPath, fileQueue, currentIndex, setCurrentPdfPath, hasStarted } = useAppStore()
+  const { currentPdfPath, fileQueue, currentIndex, setCurrentPdfPath, hasStarted, setFileLoading } = useAppStore()
   const [showSettings, setShowSettings] = useState(false)
   const [showLargeFileModal, setShowLargeFileModal] = useState(false)
   const [pendingAiPath, setPendingAiPath] = useState<string | null>(null)
@@ -63,26 +63,31 @@ function App(): React.JSX.Element {
 
     let cancelled = false
     const loadPdf = async (): Promise<void> => {
-      const pdfPath = await window.api.ensurePdf(currentFile.path)
-      if (cancelled) return
-      setCurrentPdfPath(pdfPath)
-
-      // Check page count before triggering AI
+      setFileLoading(true)
       try {
-        const pageCount = await window.api.getPageCount(pdfPath)
-        const threshold = await window.api.getLargeFileThreshold()
-        if (pageCount > threshold) {
-          setLargeFilePageCount(pageCount)
-          setPendingAiPath(pdfPath)
-          setShowLargeFileModal(true)
-          return
-        }
-      } catch {
-        // getPageCount failed (encrypted, etc.) - proceed normally
-      }
+        const pdfPath = await window.api.ensurePdf(currentFile.path)
+        if (cancelled) return
+        setCurrentPdfPath(pdfPath)
 
-      if (!cancelled) {
-        await applyAiSuggestion(pdfPath)
+        // Check page count before triggering AI
+        try {
+          const pageCount = await window.api.getPageCount(pdfPath)
+          const threshold = await window.api.getLargeFileThreshold()
+          if (pageCount > threshold) {
+            setLargeFilePageCount(pageCount)
+            setPendingAiPath(pdfPath)
+            setShowLargeFileModal(true)
+            return
+          }
+        } catch {
+          // getPageCount failed (encrypted, etc.) - proceed normally
+        }
+
+        if (!cancelled) {
+          await applyAiSuggestion(pdfPath)
+        }
+      } finally {
+        if (!cancelled) setFileLoading(false)
       }
     }
     loadPdf()
