@@ -31,7 +31,8 @@ Reponds UNIQUEMENT avec le JSON, sans markdown, sans commentaire.
   "totalHT": "Le montant HT (souvent apres la mention HT ou dans le recapitulatif TVA)",
   "totalTTC": "Le montant TTC final paye (le TOTAL en gras, ou le montant CB/paiement)",
   "tvaAmount": "Le montant de TVA",
-  "amountIsTTC": true
+  "amountIsTTC": true,
+  "suggestedAccount": null
 }
 
 REGLE pour amountIsTTC :
@@ -43,6 +44,10 @@ REGLES pour invoiceNumber :
 - Si c'est un ticket de caisse (reconnaissable a : format etroit/vertical, liste d'articles avec prix unitaires, codes EAN/barres, sous-totaux, mention "carte bancaire"/"CB", ticket commercant, etc.) alors mets "ticket-caisse" dans invoiceNumber.
 - Si c'est une facture classique avec un numero (FAC-xxx, N° xxx, etc.) mets ce numero.
 - S'il y a un numero de BVI, BVA ou numero de transaction, c'est un ticket de caisse.
+
+REGLE pour suggestedAccount :
+- Si le document ne semble PAS etre une facture ou un ticket de caisse (rapport, releve bancaire, devis, courrier, document de plus de 4 pages sans montant clair), mets "000000" dans suggestedAccount.
+- Si c'est une facture ou ticket classique, laisse suggestedAccount a null.
 
 Si un champ n'est pas visible ou lisible, mets null.`
 
@@ -118,9 +123,10 @@ export async function extractInvoiceData(pdfPath: string): Promise<AiSuggestion 
     console.log('[AI] Parsed result:', JSON.stringify(parsed))
 
     return {
+      accountNumber: parsed.suggestedAccount === '000000' ? '000000' : undefined,
       date: parsed.date || undefined,
       fixedPart: parsed.supplierName || undefined,
-      adjustablePart: parsed.invoiceNumber || undefined,
+      adjustablePart: parsed.suggestedAccount === '000000' ? 'documents-divers' : (parsed.invoiceNumber || undefined),
       amount: parsed.totalTTC || parsed.totalHT || undefined,
       amountType: parsed.amountIsTTC === false ? 'ht' : 'ttc',
       rawText: textBlock.text
