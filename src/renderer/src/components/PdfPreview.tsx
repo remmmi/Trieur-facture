@@ -21,7 +21,8 @@ export function PdfPreview(): React.JSX.Element {
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
-  const [scale, setScale] = useState(1.2)
+  const [scale, setScale] = useState(1)
+  const hasAutoFit = useRef(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [stampIncludeLabel, setStampIncludeLabel] = useState(false)
@@ -196,15 +197,7 @@ export function PdfPreview(): React.JSX.Element {
           doc.destroy()
           return
         }
-        // Auto-fit: calculate scale to fill container width
-        const firstPage = await doc.getPage(1)
-        const unscaledViewport = firstPage.getViewport({ scale: 1 })
-        const container = containerRef.current
-        if (container) {
-          const containerWidth = container.clientWidth - 32 // padding
-          const fitScale = containerWidth / unscaledViewport.width
-          setScale(Math.max(0.5, Math.min(3, fitScale)))
-        }
+        hasAutoFit.current = false
         setPdfDoc(doc)
         setTotalPages(doc.numPages)
         if (doc.numPages === 0) {
@@ -228,6 +221,22 @@ export function PdfPreview(): React.JSX.Element {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPdfPath])
+
+  // Auto-fit zoom when PDF loads and container is available
+  useEffect(() => {
+    if (!pdfDoc || hasAutoFit.current) return
+    const container = containerRef.current
+    if (!container) return
+    pdfDoc.getPage(1).then(page => {
+      const unscaledViewport = page.getViewport({ scale: 1 })
+      const containerWidth = container.clientWidth - 32
+      if (containerWidth > 0) {
+        const fitScale = containerWidth / unscaledViewport.width
+        setScale(Math.max(0.5, Math.min(3, fitScale)))
+        hasAutoFit.current = true
+      }
+    })
+  }, [pdfDoc])
 
   useEffect(() => {
     if (pdfDoc && currentPage > 0) {

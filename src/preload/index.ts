@@ -78,7 +78,13 @@ const api = {
   getLastFolders: (): Promise<{ source: string | null; destination: string | null }> =>
     ipcRenderer.invoke('get-last-folders'),
   setLastFolders: (source: string | null, destination: string | null): Promise<boolean> =>
-    ipcRenderer.invoke('set-last-folders', source, destination)
+    ipcRenderer.invoke('set-last-folders', source, destination),
+
+  // Window close
+  onCloseRequested: (callback: () => void): void => {
+    ipcRenderer.on('close-requested', callback)
+  },
+  forceQuit: (): Promise<void> => ipcRenderer.invoke('force-quit')
 }
 
 if (process.contextIsolated) {
