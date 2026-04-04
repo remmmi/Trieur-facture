@@ -17,7 +17,7 @@ export function FileSidebar(): React.JSX.Element {
   if (fileQueue.length === 0) return <></>
 
   return (
-    <div className="w-48 min-w-48 border-r border-border overflow-auto bg-card/50">
+    <div className="h-full border-r border-border overflow-auto bg-card/50">
       <ul className="py-1">
         {fileQueue.map((file, index) => (
           <li key={file.path}>
