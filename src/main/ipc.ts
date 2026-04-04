@@ -33,6 +33,10 @@ import {
   setStampIncludeLabel,
   getUseQuarterMode,
   setUseQuarterMode,
+  getPrefixAccountInFilename,
+  setPrefixAccountInFilename,
+  getLargeFileThreshold,
+  setLargeFileThreshold,
   importPlanComptable,
   getPlanComptable,
   resetPlanComptable,
@@ -198,6 +202,24 @@ export async function registerIpcHandlers(): Promise<void> {
   ipcMain.handle('set-use-quarter-mode', async (_event, value: boolean) => {
     await setUseQuarterMode(value)
     return true
+  })
+
+  ipcMain.handle('get-prefix-account', async () => getPrefixAccountInFilename())
+  ipcMain.handle('set-prefix-account', async (_event, value: boolean) => {
+    await setPrefixAccountInFilename(value)
+    return true
+  })
+
+  ipcMain.handle('get-large-file-threshold', async () => getLargeFileThreshold())
+  ipcMain.handle('set-large-file-threshold', async (_event, value: number) => {
+    await setLargeFileThreshold(value)
+    return true
+  })
+  ipcMain.handle('get-page-count', async (_event, filePath: string) => {
+    const { PDFDocument } = await import('pdf-lib')
+    const bytes = await readFile(filePath)
+    const doc = await PDFDocument.load(bytes, { ignoreEncryption: true })
+    return doc.getPageCount()
   })
 
   // --- Folder mode detection ---

@@ -44,6 +44,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
   const [includeAmount, setIncludeAmount] = useState(false)
   const [stampIncludeLabel, setStampIncludeLabel] = useState(false)
   const [useQuarterMode, setUseQuarterMode] = useState(false)
+  const [prefixAccount, setPrefixAccount] = useState(false)
+  const [largeFileThreshold, setLargeFileThreshold] = useState(8)
   const [mappings, setMappings] = useState<SupplierMapping[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<SupplierMapping>({
@@ -64,6 +66,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     window.api.getIncludeAmount().then(setIncludeAmount)
     window.api.getStampIncludeLabel().then(setStampIncludeLabel)
     window.api.getUseQuarterMode().then(setUseQuarterMode)
+    window.api.getPrefixAccount().then(setPrefixAccount)
+    window.api.getLargeFileThreshold().then(setLargeFileThreshold)
   }, [])
 
   useEffect(() => {
@@ -239,6 +243,23 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
               <p className="text-xs text-muted-foreground pl-7">
                 Exemple : Fournisseur - FAC-001 - 186.57.pdf
               </p>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={prefixAccount}
+                  onChange={async (e) => {
+                    setPrefixAccount(e.target.checked)
+                    await window.api.setPrefixAccount(e.target.checked)
+                  }}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-sm">
+                  Prefixer le nom du fichier par le numero de compte
+                </span>
+              </label>
+              <p className="text-xs text-muted-foreground pl-7">
+                Exemple : 601100 - Fournisseur - FAC-001.pdf
+              </p>
             </section>
 
             {/* Stamp label option */}
@@ -298,6 +319,29 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
                 {useQuarterMode
                   ? 'Exemple : Comptabilite/2026/T2/Fournisseur - FAC-001.pdf'
                   : 'Exemple : Comptabilite/2026/04/Fournisseur - FAC-001.pdf'}
+              </p>
+            </section>
+
+            {/* Gros fichiers */}
+            <section className="space-y-3">
+              <h2 className="text-base font-semibold">Gros fichiers</h2>
+              <div className="flex items-center gap-3">
+                <label className="text-sm">Seuil d'avertissement (pages)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={largeFileThreshold}
+                  onChange={async (e) => {
+                    const v = parseInt(e.target.value) || 8
+                    setLargeFileThreshold(v)
+                    await window.api.setLargeFileThreshold(v)
+                  }}
+                  className="h-8 w-20 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Un avertissement s'affiche pour les fichiers depassant ce nombre de pages.
               </p>
             </section>
           </div>

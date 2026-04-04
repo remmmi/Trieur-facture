@@ -61,6 +61,7 @@ export function ComptaForm(): React.JSX.Element {
   const [includeAmount, setIncludeAmount] = useState(false)
   const [stampIncludeLabel, setStampIncludeLabel] = useState(false)
   const [useQuarterMode, setUseQuarterMode] = useState(false)
+  const [prefixAccount, setPrefixAccount] = useState(false)
   const processingGuard = useRef(false)
   const [customDestFolder, setCustomDestFolder] = useState<string | null>(null)
   const currentFile = fileQueue[currentIndex]
@@ -78,6 +79,7 @@ export function ComptaForm(): React.JSX.Element {
     window.api.getIncludeAmount().then(setIncludeAmount)
     window.api.getStampIncludeLabel().then(setStampIncludeLabel)
     window.api.getUseQuarterMode().then(setUseQuarterMode)
+    window.api.getPrefixAccount().then(setPrefixAccount)
   }, [])
 
   // Load supplier mappings
@@ -272,7 +274,16 @@ export function ComptaForm(): React.JSX.Element {
     setMessage(null)
 
     try {
-      const nameParts = [currentFormData.fixedPart, currentFormData.adjustablePart]
+      const nameParts: string[] = []
+      if (prefixAccount) {
+        if (ventilationEnabled) {
+          const lines = splitLinesRef.current.filter(l => l.accountNumber)
+          nameParts.push(lines.map(l => l.accountNumber).join('+'))
+        } else if (currentFormData.accountNumber) {
+          nameParts.push(currentFormData.accountNumber)
+        }
+      }
+      nameParts.push(currentFormData.fixedPart, currentFormData.adjustablePart)
       if (includeAmount && currentFormData.amount) {
         nameParts.push(currentFormData.amount)
       }
