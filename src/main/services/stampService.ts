@@ -25,6 +25,7 @@ export interface ProcessData {
   useQuarterMode?: boolean
   ventilation?: VentilationLine[]
   stampIncludeLabel?: boolean
+  paid?: string
 }
 
 function getQuarter(month: number): string {
@@ -51,10 +52,11 @@ interface StampParams {
   stampRotation: number
   pageWidth: number
   pageHeight: number
+  paid?: string
 }
 
 function stampSingle(params: StampParams): void {
-  const { page, font, text, stampX, stampY, stampRotation, pageWidth, pageHeight } = params
+  const { page, font, text, stampX, stampY, stampRotation, pageWidth, pageHeight, paid } = params
 
   const fontSize = Math.max(10, Math.min(16, pageWidth / 22))
   const textWidth = font.widthOfTextAtSize(text, fontSize)
@@ -97,6 +99,45 @@ function stampSingle(params: StampParams): void {
     color: rgb(0.8, 0, 0),
     rotate: rot
   })
+
+  if (paid) {
+    const paidText = `Paye : ${paid}`
+    const paidTextWidth = font.widthOfTextAtSize(paidText, fontSize)
+    const paidBoxW = paidTextWidth + padding * 2
+    const paidBoxH = fontSize + padding * 2
+
+    // Position juste en dessous du tampon rouge (Y decroissant en PDF)
+    const paidY = y - paidBoxH
+    const paidX = x
+
+    page.drawRectangle({
+      x: paidX,
+      y: paidY,
+      width: paidBoxW,
+      height: paidBoxH,
+      color: rgb(1, 1, 1),
+      opacity: 0.9,
+      borderColor: rgb(0.4, 0.4, 0.8),
+      borderWidth: 0.5,
+      rotate: rot
+    })
+
+    const paidLocalTx = padding - paidBoxW / 2
+    const paidLocalTy = padding - paidBoxH / 2
+    const paidCenterX = paidX + paidBoxW / 2
+    const paidCenterY = paidY + paidBoxH / 2
+    const paidTextX = paidCenterX + paidLocalTx * Math.cos(rad) - paidLocalTy * Math.sin(rad)
+    const paidTextY = paidCenterY + paidLocalTx * Math.sin(rad) + paidLocalTy * Math.cos(rad)
+
+    page.drawText(paidText, {
+      x: paidTextX,
+      y: paidTextY,
+      size: fontSize,
+      font,
+      color: rgb(0, 0, 0.8),
+      rotate: rot
+    })
+  }
 }
 
 const MAX_VENTILATION_LINES = 8
@@ -109,7 +150,8 @@ function stampMultiple(
   stampY: number,
   pageWidth: number,
   pageHeight: number,
-  includeLabel = false
+  includeLabel = false,
+  paid?: string
 ): string | undefined {
   let warning: string | undefined
 
@@ -166,6 +208,30 @@ function stampMultiple(
       size: fontSize,
       font,
       color: rgb(0.8, 0, 0)
+    })
+  }
+
+  if (paid) {
+    const paidText = `Paye : ${paid}`
+    const lastLineY = Math.max(0, clampedTop - lineH * n)
+    const paidY = lastLineY - lineH
+
+    page.drawRectangle({
+      x: originX,
+      y: Math.max(0, paidY),
+      width: boxW,
+      height: lineH,
+      color: rgb(1, 1, 1),
+      opacity: 0.9,
+      borderColor: rgb(0.4, 0.4, 0.8),
+      borderWidth: 0.5
+    })
+    page.drawText(paidText, {
+      x: originX + padding,
+      y: Math.max(0, paidY) + padding,
+      size: fontSize,
+      font,
+      color: rgb(0, 0, 0.8)
     })
   }
 
@@ -229,7 +295,8 @@ export async function processDocument(data: ProcessData): Promise<ProcessResult>
       stampY,
       pageWidth,
       pageHeight,
-      data.stampIncludeLabel
+      data.stampIncludeLabel,
+      data.paid
     )
   } else {
     const stampText = data.stampIncludeLabel
@@ -243,7 +310,8 @@ export async function processDocument(data: ProcessData): Promise<ProcessResult>
       stampY,
       stampRotation,
       pageWidth,
-      pageHeight
+      pageHeight,
+      paid: data.paid
     })
   }
 

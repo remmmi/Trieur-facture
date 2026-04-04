@@ -78,8 +78,22 @@ export function PdfPreview(): React.JSX.Element {
           context.fillText(text, blockX + padding, y + padding + fontSize * 0.85)
         })
 
+        // Tampon bleu "Paye" si rempli
+        const { paid } = state.currentFormData
+        if (paid) {
+          const paidText = `Paye : ${paid}`
+          const paidY = blockY + N * lineH
+          context.fillStyle = 'rgba(255, 255, 255, 0.9)'
+          context.fillRect(blockX, paidY, boxW, lineH)
+          context.strokeStyle = 'rgba(100, 100, 200, 0.8)'
+          context.lineWidth = 0.5 * scale
+          context.strokeRect(blockX, paidY, boxW, lineH)
+          context.fillStyle = 'rgba(0, 0, 200, 1)'
+          context.fillText(paidText, blockX + padding, paidY + padding + fontSize * 0.85)
+        }
+
         // Stocker le bloc entier pour le drag (hit-test)
-        const totalH = N * lineH
+        const totalH = (N + (paid ? 1 : 0)) * lineH
         lastStamp.current = {
           cx: blockX + boxW / 2,
           cy: blockY + totalH / 2,
@@ -135,6 +149,35 @@ export function PdfPreview(): React.JSX.Element {
       context.fillText(stampText, padding, padding + fontSize * 0.85)
 
       context.restore()
+
+      // Tampon bleu "Paye" si rempli
+      const { paid } = state.currentFormData
+      if (paid) {
+        const paidText = `Paye : ${paid}`
+        context.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`
+        const paidTextWidth = context.measureText(paidText).width
+        const paidBoxW = paidTextWidth + padding * 2
+        const paidBoxH = fontSize + padding * 2
+        const paidY = cy + boxH  // juste en dessous du tampon rouge
+
+        context.save()
+        context.translate(cx + paidBoxW / 2, paidY + paidBoxH / 2)
+        context.rotate(rad)
+        context.translate(-paidBoxW / 2, -paidBoxH / 2)
+
+        context.fillStyle = 'rgba(255, 255, 255, 0.9)'
+        context.fillRect(0, 0, paidBoxW, paidBoxH)
+        context.strokeStyle = 'rgba(100, 100, 200, 0.8)'
+        context.lineWidth = 0.5 * scale
+        context.strokeRect(0, 0, paidBoxW, paidBoxH)
+        context.fillStyle = 'rgba(0, 0, 200, 1)'
+        context.fillText(paidText, padding, padding + fontSize * 0.85)
+        context.restore()
+
+        // Agrandir le hitbox du tampon
+        lastStamp.current = { cx: centerX, cy: centerY + paidBoxH / 2, w: Math.max(boxW, paidBoxW), h: boxH + paidBoxH, rad }
+        return
+      }
 
       lastStamp.current = { cx: centerX, cy: centerY, w: boxW, h: boxH, rad }
     },
@@ -250,7 +293,7 @@ export function PdfPreview(): React.JSX.Element {
       renderPage(pdfDoc, 1)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFormData.accountNumber, currentFormData.accountLabel, stampX, stampY, stampRotation, ventilationEnabled, ventilationLines, stampIncludeLabel])
+  }, [currentFormData.accountNumber, currentFormData.accountLabel, currentFormData.paid, stampX, stampY, stampRotation, ventilationEnabled, ventilationLines, stampIncludeLabel])
 
   // --- Drag handlers ---
   const getCanvasPos = (e: React.MouseEvent): { cx: number; cy: number } => {
