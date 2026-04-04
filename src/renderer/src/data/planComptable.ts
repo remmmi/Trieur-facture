@@ -3,7 +3,8 @@ export interface CompteComptable {
   libelle: string
 }
 
-const csvData = `101,Capital social
+const csvData = `000000,Documents divers
+101,Capital social
 106,Réserves
 108,Compte de l'exploitant
 164,Emprunts auprès des établissements de crédit
@@ -39,6 +40,7 @@ const csvData = `101,Capital social
 455,Associés - Comptes courants
 467,Autres comptes débiteurs ou créditeurs
 471,Comptes d'attente
+471000,Comptes d'attente
 486,Charges constatées d'avance
 487,Produits constatés d'avance
 491,Provisions pour dépréciation des comptes clients

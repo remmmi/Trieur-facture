@@ -45,7 +45,7 @@ export function PdfPreview(): React.JSX.Element {
         // Mode ventile : N tampons empiles, pas de rotation
         const pdfW = canvasW / scale
         const N = Math.min(vLines.length, 8)
-        const fontSizeByWidth = Math.max(8, Math.min(12, pdfW / 30))
+        const fontSizeByWidth = Math.max(8, Math.min(16, pdfW / 22))
         const maxBlockH = canvasH * 0.4
         const fontSizeByHeight = Math.floor(maxBlockH / (N * 1.6))
         const fontSize = Math.max(7, Math.min(fontSizeByWidth, fontSizeByHeight)) * scale
@@ -100,7 +100,7 @@ export function PdfPreview(): React.JSX.Element {
         ? `${accountNumber}${accountLabel ? ' - ' + accountLabel : ''}`
         : accountNumber
       const pdfW = canvasW / scale
-      const fontSize = Math.max(8, Math.min(12, pdfW / 30)) * scale
+      const fontSize = Math.max(10, Math.min(16, pdfW / 22)) * scale
       const padding = 4 * scale
 
       context.font = `bold ${fontSize}px Helvetica, Arial, sans-serif`

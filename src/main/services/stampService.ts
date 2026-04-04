@@ -56,7 +56,7 @@ interface StampParams {
 function stampSingle(params: StampParams): void {
   const { page, font, text, stampX, stampY, stampRotation, pageWidth, pageHeight } = params
 
-  const fontSize = Math.max(8, Math.min(12, pageWidth / 30))
+  const fontSize = Math.max(10, Math.min(16, pageWidth / 22))
   const textWidth = font.widthOfTextAtSize(text, fontSize)
   const padding = 4
 
@@ -122,7 +122,7 @@ function stampMultiple(
   if (n === 0) return warning
 
   // Adaptive font size : readable but fits the vertical block in 40% of page height
-  const fontSize = Math.max(7, Math.min(12, Math.min(pageWidth / 30, (pageHeight * 0.4) / (n * 1.6))))
+  const fontSize = Math.max(7, Math.min(16, Math.min(pageWidth / 22, (pageHeight * 0.4) / (n * 1.6))))
   const padding = 4
   const lineH = fontSize + padding * 2
 
