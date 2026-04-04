@@ -27,6 +27,8 @@ export interface AppConfig {
   includeAmountInFilename: boolean
   useQuarterMode: boolean
   stampIncludeLabel: boolean
+  prefixAccountInFilename: boolean
+  largeFilePageThreshold: number
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -37,7 +39,9 @@ const DEFAULT_CONFIG: AppConfig = {
   customPlanComptable: null,
   includeAmountInFilename: false,
   useQuarterMode: false,
-  stampIncludeLabel: false
+  stampIncludeLabel: false,
+  prefixAccountInFilename: false,
+  largeFilePageThreshold: 8
 }
 
 function getConfigPath(): string {
@@ -261,5 +265,27 @@ export async function getUseQuarterMode(): Promise<boolean> {
 export async function setUseQuarterMode(value: boolean): Promise<void> {
   const config = await loadConfig()
   config.useQuarterMode = value
+  await saveConfig(config)
+}
+
+export async function getPrefixAccountInFilename(): Promise<boolean> {
+  const config = await loadConfig()
+  return config.prefixAccountInFilename ?? false
+}
+
+export async function setPrefixAccountInFilename(value: boolean): Promise<void> {
+  const config = await loadConfig()
+  config.prefixAccountInFilename = value
+  await saveConfig(config)
+}
+
+export async function getLargeFileThreshold(): Promise<number> {
+  const config = await loadConfig()
+  return config.largeFilePageThreshold ?? 8
+}
+
+export async function setLargeFileThreshold(value: number): Promise<void> {
+  const config = await loadConfig()
+  config.largeFilePageThreshold = value
   await saveConfig(config)
 }

@@ -91,6 +91,11 @@ export interface Api {
   setStampIncludeLabel: (value: boolean) => Promise<boolean>
   getUseQuarterMode: () => Promise<boolean>
   setUseQuarterMode: (value: boolean) => Promise<boolean>
+  getPrefixAccount: () => Promise<boolean>
+  setPrefixAccount: (value: boolean) => Promise<boolean>
+  getLargeFileThreshold: () => Promise<number>
+  setLargeFileThreshold: (value: number) => Promise<boolean>
+  getPageCount: (filePath: string) => Promise<number>
   checkFolderMode: (basePath: string, year: string) => Promise<'month' | 'quarter' | 'unknown'>
 
   // Plan comptable
