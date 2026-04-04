@@ -36,7 +36,8 @@ export function ComptaForm(): React.JSX.Element {
     aiProcessing,
     setAiProcessing,
     setVentilationEnabled: setStoreVentilation,
-    setVentilationLines
+    setVentilationLines,
+    ignoreCurrentFile
   } = useAppStore()
 
   // Supplier autocomplete
@@ -517,6 +518,23 @@ export function ComptaForm(): React.JSX.Element {
     }
   }, [currentPdfPath, aiProcessing, setAiProcessing, setFormData])
 
+  const handleIgnore = useCallback(async () => {
+    ignoreCurrentFile()
+    setSupplierQuery('')
+    setCustomDestFolder(null)
+    setMessage(null)
+    const state = useAppStore.getState()
+    if (state.fileQueue.length > 0) {
+      const nextFile = state.fileQueue[state.currentIndex]
+      if (nextFile) {
+        const pdfPath = await window.api.ensurePdf(nextFile.path)
+        setCurrentPdfPath(pdfPath)
+      }
+    } else {
+      setCurrentPdfPath(null)
+    }
+  }, [ignoreCurrentFile, setCurrentPdfPath])
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -757,6 +775,16 @@ export function ComptaForm(): React.JSX.Element {
         ) : (
           'Valider et classer'
         )}
+      </Button>
+
+      {/* Ignore button */}
+      <Button
+        variant="outline"
+        className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:border-destructive"
+        onClick={handleIgnore}
+        disabled={!currentPdfPath || isProcessing}
+      >
+        Ignorer ce document
       </Button>
     </div>
   )

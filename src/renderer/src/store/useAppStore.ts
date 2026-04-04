@@ -78,6 +78,10 @@ interface AppState {
   // File loading state (ensurePdf in progress)
   fileLoading: boolean
   setFileLoading: (value: boolean) => void
+
+  // Ignored files (removed from queue without being deleted)
+  ignoredFiles: string[]
+  ignoreCurrentFile: () => void
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -172,5 +176,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   setVentilationLines: (lines) => set({ ventilationLines: lines }),
 
   fileLoading: false,
-  setFileLoading: (value) => set({ fileLoading: value })
+  setFileLoading: (value) => set({ fileLoading: value }),
+
+  ignoredFiles: [],
+  ignoreCurrentFile: () => {
+    const { fileQueue, currentIndex } = get()
+    const file = fileQueue[currentIndex]
+    if (!file) return
+    const newIgnored = [...get().ignoredFiles, file.path]
+    const newQueue = fileQueue.filter((_, i) => i !== currentIndex)
+    const newIndex = Math.min(currentIndex, Math.max(0, newQueue.length - 1))
+    set({
+      ignoredFiles: newIgnored,
+      fileQueue: newQueue,
+      currentIndex: newIndex,
+      currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) },
+      aiExtractedSupplier: null,
+      ventilationEnabled: false,
+      ventilationLines: []
+    })
+  }
 }))
