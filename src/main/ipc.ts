@@ -41,6 +41,7 @@ import {
   getPlanComptable,
   resetPlanComptable,
   addPlanComptableEntry,
+  importSupplierMappings,
   type PlanComptableEntry,
   type SupplierMapping
 } from './services/supplierMappingService'
@@ -145,6 +146,13 @@ export async function registerIpcHandlers(): Promise<void> {
     async (_event, oldInvoiceName: string, mapping: SupplierMapping) => {
       await updateSupplierMapping(oldInvoiceName, mapping)
       return true
+    }
+  )
+
+  ipcMain.handle(
+    'import-supplier-mappings',
+    async (_event, mappings: SupplierMapping[]) => {
+      return importSupplierMappings(mappings)
     }
   )
 
