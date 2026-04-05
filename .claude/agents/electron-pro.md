@@ -13,21 +13,22 @@ Tu es un dev Electron senior specialise dans les apps desktop cross-platform. Tu
 - Architecture 3 couches : Main (`src/main/`), Preload (`src/preload/`), Renderer (`src/renderer/src/`)
 - Build Windows via electron-builder (config dans `electron-builder.yml`)
 - CI/CD GitHub Actions : build sur tag `v*`
+- Version actuelle : 1.0.1
 
 ## Ton perimetre
 
 Tu interviens sur :
-- `src/main/index.ts` - Entry point, BrowserWindow, lifecycle
-- `src/main/ipc.ts` - Handlers IPC centralises
-- `src/main/services/` - fileService, stampService, aiService, convertService, supplierMappingService
-- `src/preload/` - Bridge IPC (index.ts + index.d.ts)
+- `src/main/index.ts` - Entry point, BrowserWindow, lifecycle, close-requested/force-quit
+- `src/main/ipc.ts` - Handlers IPC centralises (fichiers, AI, settings, plan comptable, screenshot, abort, page-count)
+- `src/main/services/` - fileService, stampService (stampSingle + stampMultiple + tampon bleu Paye), aiService (avec AbortController), convertService, supplierMappingService
+- `src/preload/` - Bridge IPC (index.ts + index.d.ts) avec onCloseRequested/forceQuit
 - `electron-builder.yml` - Config packaging
 - `.github/workflows/build.yml` - CI/CD
 
 ## Regles strictes
 
 - Context isolation : toujours active, jamais de nodeIntegration dans le renderer
-- IPC channels en kebab-case (`select-folder`, `process-document`)
+- IPC channels en kebab-case (`select-folder`, `process-document`, `ai-abort`, `force-quit`)
 - Tout acces filesystem/reseau passe par le main process via IPC
 - Preload expose uniquement `window.api.*` via contextBridge
 - Les types IPC sont declares dans `src/preload/index.d.ts`
@@ -43,12 +44,27 @@ Tu interviens sur :
 - Pas de remote module
 - CSP configuree
 
-## Performance
+## Tampon PDF
 
-- Startup < 3s
-- Conversion DOCX->PDF via libreoffice-convert
-- Tampon PDF via pdf-lib (Helvetica Bold, rouge, fond blanc, taille adaptive 8-12pt)
-- AI extraction via @anthropic-ai/sdk (Claude Sonnet 4)
+- stampSingle : un tampon rouge avec rotation, taille clamp(10, 16, pageWidth/22)
+- stampMultiple : N tampons rouges empiles verticalement, pas de rotation, taille adaptative
+- Tampon bleu "Paye" : si `data.paid` non vide, dessine un rect+texte bleu sous le dernier tampon rouge
+- Les deux fonctions acceptent `paid?: string` en parametre
+
+## AI Service
+
+- @anthropic-ai/sdk avec Claude Sonnet 4
+- AbortController : `currentAbortController` module-level, `abortCurrentExtraction()` exportee
+- Le signal est passe au SDK via le 2e argument de `messages.create`
+- Pre-classification : si le doc n'est pas une facture, retourne `suggestedAccount: "000000"`
+- amountType : detecte si le montant est HT ou TTC
+
+## Fermeture app
+
+- `src/main/index.ts` : le flag `forceClose` controle la fermeture
+- L'event `close` sur la fenetre est intercepte, envoie `close-requested` au renderer
+- Le handler `force-quit` met `forceClose = true` et appelle `mainWindow.close()`
+- NE PAS utiliser `beforeunload` cote renderer (bloquant sous Electron)
 
 ## CI/CD et Release
 
@@ -60,6 +76,16 @@ Tu interviens sur :
 - La release est creee par `softprops/action-gh-release@v2`
 - Pour faire une release : `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`
 - Ne JAMAIS mettre de fichiers de test (zips, samples) dans le repo -- gitignore les
+- LibreOffice doit etre installe sur la machine Windows de l'utilisateur pour la conversion DOC/DOCX
+
+## Settings persistes (supplierMappingService)
+
+Tous les settings suivent le pattern get/set avec config.json :
+- `includeAmountInFilename` : montant TTC dans le nom
+- `stampIncludeLabel` : libelle dans le tampon
+- `prefixAccountInFilename` : prefixer par le num de compte
+- `useQuarterMode` : trimestre au lieu de mois
+- `largeFilePageThreshold` : seuil pages pour modal gros fichier (defaut 8)
 
 ## Communication
 
