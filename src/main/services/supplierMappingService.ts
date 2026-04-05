@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { join, dirname } from 'path'
 import { app } from 'electron'
+import Fuse from 'fuse.js'
 
 export interface SupplierMapping {
   /** Le nom tel qu'il apparaît sur les factures (ex: "EDF Entreprises SA") */
@@ -149,23 +150,44 @@ export function findSupplierMapping(
   extractedName: string,
   mappings: SupplierMapping[]
 ): SupplierMapping | null {
+  if (!extractedName || mappings.length === 0) return null
+
   const n = normalize(extractedName)
 
-  // Exact match first (with normalized comparison)
-  const exact = mappings.find((m) => normalize(m.invoiceName) === n)
+  // 1. Exact match on normalized invoiceName or shortName (fastest path)
+  const exact = mappings.find(
+    (m) => normalize(m.invoiceName) === n || normalize(m.shortName) === n
+  )
   if (exact) return exact
 
-  // Partial match: extracted name contains the mapping name or vice-versa
-  const partial = mappings.find(
-    (m) =>
-      n.includes(normalize(m.invoiceName)) ||
-      normalize(m.invoiceName).includes(n) ||
-      n.includes(normalize(m.shortName)) ||
-      normalize(m.shortName).includes(n)
-  )
-  if (partial) return partial
+  // 2. Fuzzy match via Fuse.js : tolerant aux typos, OCR errors, mots manquants
+  const fuse = new Fuse(mappings, {
+    keys: [
+      { name: 'invoiceName', weight: 0.6 },
+      { name: 'shortName', weight: 0.4 }
+    ],
+    // threshold : 0 = match parfait, 1 = tout match. 0.3 = tolere ~30% de differences
+    threshold: 0.3,
+    ignoreLocation: true, // le match peut etre n'importe ou dans la chaine
+    minMatchCharLength: 3,
+    includeScore: true
+  })
 
-  return null
+  const results = fuse.search(extractedName)
+  if (results.length === 0) return null
+
+  // Fuse retourne un score : 0 = parfait, 1 = pire.
+  const best = results[0]
+  if (best.score === undefined || best.score >= 0.3) return null
+
+  // Check ambiguite : si le 2e candidat est trop proche du 1er, on refuse le match
+  // (evite de choisir arbitrairement entre deux fournisseurs similaires)
+  const second = results[1]
+  if (second && second.score !== undefined && second.score - best.score < 0.1) {
+    return null
+  }
+
+  return best.item
 }
 
 // --- Plan comptable ---

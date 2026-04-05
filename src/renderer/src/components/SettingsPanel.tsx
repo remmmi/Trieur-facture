@@ -161,16 +161,15 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         }
 
         // Parser la ligne : separateur point-virgule, gestion des guillemets
-        // Format attendu : nom_fournisseur;numero_compte
+        // Format attendu : nom_fournisseur;numero_compte (compte optionnel)
         const sep = ';'
         const firstSep = raw.indexOf(sep)
-        if (firstSep === -1) {
-          ignored++
-          continue
-        }
-
-        const rawName = raw.slice(0, firstSep).trim().replace(/^["']|["']$/g, '')
-        const rawAccount = raw.slice(firstSep + 1).trim().replace(/^["']|["']$/g, '')
+        const rawName = (firstSep === -1 ? raw : raw.slice(0, firstSep))
+          .trim()
+          .replace(/^["']|["']$/g, '')
+        const rawAccount = firstSep === -1
+          ? ''
+          : raw.slice(firstSep + 1).trim().replace(/^["']|["']$/g, '')
 
         if (!rawName) {
           ignored++
