@@ -1,7 +1,7 @@
 # Ventilation multi-comptes -- Design Document
 
 **Date** : 2026-04-03
-**Statut** : Implemente (v0.2.0)
+**Statut** : Implemente (v0.2.0, enrichi v1.0.1 : bouton "le reste", amountType HT/TTC, tampon bleu "Paye")
 **Auteur** : Claude Code + utilisateur
 
 ## Probleme
