@@ -183,6 +183,17 @@ export function ComptaForm(): React.JSX.Element {
     prevAutoFillKey.current = ''
   }, [currentPdfPath])
 
+  // Reset complet de l'etat local ventilation au changement de document
+  useEffect(() => {
+    setVentilationLocalEnabled(false)
+    setStoreVentilation(false)
+    splitLinesRef.current = []
+    setSplitBalanced(true)
+    setSplitLinesValid(false)
+    setVentilationLines([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPdfPath])
+
   useEffect(() => {
     const { accountNumber, fixedPart } = currentFormData
     if (!accountNumber || !fixedPart || supplierMappings.length === 0) return

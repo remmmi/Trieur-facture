@@ -3,23 +3,15 @@ import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
 export function FileSidebar(): React.JSX.Element {
-  const { fileQueue, currentIndex, setCurrentIndex, setCurrentPdfPath, isProcessing, resetForm, setFileLoading } = useAppStore()
+  const { fileQueue, currentIndex, setCurrentIndex, isProcessing } = useAppStore()
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; index: number } | null>(null)
 
-  const handleClick = async (index: number): Promise<void> => {
+  const handleClick = (index: number): void => {
     if (index === currentIndex || isProcessing) return
-    resetForm()
     setCurrentIndex(index)
-    setFileLoading(true)
-    try {
-      const file = fileQueue[index]
-      if (file) {
-        const pdfPath = await window.api.ensurePdf(file.path)
-        setCurrentPdfPath(pdfPath)
-      }
-    } finally {
-      setFileLoading(false)
-    }
+    // Le useEffect de App.tsx gere le reste :
+    // resetForm (via setCurrentIndex du store), setFileLoading, ensurePdf,
+    // setCurrentPdfPath, applyAiSuggestion
   }
 
   const handleIgnoreFromMenu = async (index: number): Promise<void> => {

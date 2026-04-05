@@ -56,7 +56,8 @@ export function PdfPreview(): React.JSX.Element {
 
         const stampTexts = vLines.slice(0, N).map(l => {
           const label = stampIncludeLabel && l.accountLabel ? ` - ${l.accountLabel}` : ''
-          return `${l.accountNumber}${label} -> ${l.amount}`
+          const amount = l.amount ? `${l.amount.replace('.', ',')}\u20ac` : ''
+          return `${l.accountNumber}${label} : ${amount}`
         })
         const maxTextWidth = Math.max(...stampTexts.map(t => context.measureText(t).width))
         const boxW = maxTextWidth + padding * 2

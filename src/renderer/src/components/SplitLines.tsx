@@ -41,8 +41,11 @@ function round2(n: number): string {
   return (Math.round(n * 100) / 100).toFixed(2)
 }
 
-function parseAmount(raw: string): number {
-  return parseFloat(raw.replace(',', '.')) || 0
+function parseAmount(raw: unknown): number {
+  if (raw === null || raw === undefined) return 0
+  if (typeof raw === 'number') return isFinite(raw) ? raw : 0
+  const str = String(raw)
+  return parseFloat(str.replace(',', '.')) || 0
 }
 
 export function SplitLines({ aiTotalTTC, aiAmountType = 'ttc', onChange, initialAccount }: SplitLinesProps): React.JSX.Element {
