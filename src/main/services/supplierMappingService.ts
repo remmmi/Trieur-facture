@@ -107,6 +107,36 @@ export async function updateSupplierMapping(
   await saveConfig(config)
 }
 
+export async function importSupplierMappings(
+  newMappings: SupplierMapping[]
+): Promise<{ imported: number; updated: number }> {
+  const config = await loadConfig()
+  const existing = config.supplierMappings || []
+  const existingByName = new Map(
+    existing.map((m) => [m.invoiceName.toLowerCase(), m])
+  )
+
+  let imported = 0
+  let updated = 0
+
+  for (const mapping of newMappings) {
+    const key = mapping.invoiceName.toLowerCase()
+    if (existingByName.has(key)) {
+      const idx = existing.findIndex((m) => m.invoiceName.toLowerCase() === key)
+      existing[idx] = mapping
+      updated++
+    } else {
+      existing.push(mapping)
+      existingByName.set(key, mapping)
+      imported++
+    }
+  }
+
+  config.supplierMappings = existing
+  await saveConfig(config)
+  return { imported, updated }
+}
+
 /**
  * Trouve le mapping correspondant à un nom de fournisseur extrait par l'IA.
  * Utilise une recherche floue : le nom extrait contient le nom du mapping ou vice-versa.

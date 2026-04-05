@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { SaveMappingDialog } from '@/components/SaveMappingDialog'
+import { OrphanAccountDialog } from '@/components/OrphanAccountDialog'
 import { AccountCombobox } from '@/components/AccountCombobox'
 import { SplitLines } from '@/components/SplitLines'
 import type { SplitLine } from '@/components/SplitLines'
@@ -67,6 +68,11 @@ export function ComptaForm(): React.JSX.Element {
   const [customDestFolder, setCustomDestFolder] = useState<string | null>(null)
   const currentFile = fileQueue[currentIndex]
 
+  // Orphan account dialog
+  const [orphanDialog, setOrphanDialog] = useState<{
+    mapping: SupplierMapping
+  } | null>(null)
+
   // Ventilation state
   const [ventilationEnabled, setVentilationLocalEnabled] = useState(false)
   const splitLinesRef = useRef<SplitLine[]>([])
@@ -74,6 +80,22 @@ export function ComptaForm(): React.JSX.Element {
   const [splitLinesValid, setSplitLinesValid] = useState(false)
   const [aiAmountType, setAiAmountType] = useState<'ht' | 'ttc'>('ttc')
   const lastAiSuggestionRef = useRef<Record<string, string> | null>(null)
+
+  // Plan comptable reactif via IPC
+  const [currentPlan, setCurrentPlan] = useState<{ numero: string; libelle: string }[]>([])
+
+  useEffect(() => {
+    const loadPlan = async (): Promise<void> => {
+      const custom = await window.api.getPlanComptable()
+      if (custom && custom.length > 0) {
+        setCurrentPlan(custom)
+      } else {
+        const { planComptable: defaultPlan } = await import('@/data/planComptable')
+        setCurrentPlan(defaultPlan)
+      }
+    }
+    loadPlan()
+  }, [])
 
   // Load settings
   useEffect(() => {
@@ -140,6 +162,47 @@ export function ComptaForm(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFormData.fixedPart])
 
+  // --- Orphan account helpers ---
+  const isOrphanAccount = (accountNumber: string): boolean => {
+    if (!accountNumber) return false
+    return !currentPlan.some((c) => c.numero === accountNumber)
+  }
+
+  const checkAndShowOrphanDialog = (mapping: SupplierMapping): void => {
+    if (mapping.defaultAccount && isOrphanAccount(mapping.defaultAccount)) {
+      setOrphanDialog({ mapping })
+    }
+  }
+
+  // Detect orphan account when AI auto-fills the form at document load
+  // Runs when accountNumber arrives from an external source (App.tsx via store)
+  const prevAutoFillKey = useRef<string>('')
+
+  // Reset la cle de deduplication a chaque changement de document
+  useEffect(() => {
+    prevAutoFillKey.current = ''
+  }, [currentPdfPath])
+
+  useEffect(() => {
+    const { accountNumber, fixedPart } = currentFormData
+    if (!accountNumber || !fixedPart || supplierMappings.length === 0) return
+    // Build a key to avoid re-triggering on the same values
+    const key = `${fixedPart}::${accountNumber}`
+    if (key === prevAutoFillKey.current) return
+    prevAutoFillKey.current = key
+    // Only act when the account is orphan and came from a known mapping
+    if (!isOrphanAccount(accountNumber)) return
+    const matchedMapping = supplierMappings.find(
+      (m) =>
+        m.shortName.toLowerCase() === fixedPart.toLowerCase() ||
+        m.invoiceName.toLowerCase() === fixedPart.toLowerCase()
+    )
+    if (matchedMapping) {
+      setOrphanDialog({ mapping: matchedMapping })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFormData.accountNumber, currentFormData.fixedPart, supplierMappings])
+
   // --- Account handler ---
   const handleSelectAccount = (numero: string, libelle: string): void => {
     setFormData({ accountNumber: numero, accountLabel: libelle })
@@ -154,6 +217,7 @@ export function ComptaForm(): React.JSX.Element {
       accountLabel: mapping.defaultAccountLabel
     })
     setShowSupplierSuggestions(false)
+    checkAndShowOrphanDialog(mapping)
   }
 
   const handleSupplierInputChange = (value: string): void => {
@@ -478,6 +542,16 @@ export function ComptaForm(): React.JSX.Element {
     reloadMappings()
   }
 
+  const handleOrphanSave = async (updatedMapping: SupplierMapping): Promise<void> => {
+    await window.api.updateSupplierMapping(updatedMapping.invoiceName, updatedMapping)
+    setFormData({
+      accountNumber: updatedMapping.defaultAccount,
+      accountLabel: updatedMapping.defaultAccountLabel
+    })
+    setOrphanDialog(null)
+    reloadMappings()
+  }
+
   const handleAiReread = useCallback(async () => {
     if (!currentPdfPath || aiProcessing) return
     setAiProcessing(true)
@@ -613,6 +687,15 @@ export function ComptaForm(): React.JSX.Element {
             setShowSaveMapping(false)
             setPendingSaveData(null)
           }}
+        />
+      )}
+
+      {/* Orphan account dialog */}
+      {orphanDialog && (
+        <OrphanAccountDialog
+          mapping={orphanDialog.mapping}
+          onSave={handleOrphanSave}
+          onDismiss={() => setOrphanDialog(null)}
         />
       )}
 

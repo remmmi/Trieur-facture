@@ -32,6 +32,8 @@ const api = {
     ipcRenderer.invoke('remove-supplier-mapping', invoiceName),
   updateSupplierMapping: (oldInvoiceName: string, mapping: unknown): Promise<boolean> =>
     ipcRenderer.invoke('update-supplier-mapping', oldInvoiceName, mapping),
+  importSupplierMappings: (mappings: unknown[]): Promise<{ imported: number; updated: number }> =>
+    ipcRenderer.invoke('import-supplier-mappings', mappings),
 
   // File check
   checkFileExists: (filePath: string): Promise<boolean> =>

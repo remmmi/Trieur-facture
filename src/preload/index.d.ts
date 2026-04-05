@@ -81,6 +81,9 @@ export interface Api {
   addSupplierMapping: (mapping: SupplierMapping) => Promise<boolean>
   removeSupplierMapping: (invoiceName: string) => Promise<boolean>
   updateSupplierMapping: (oldInvoiceName: string, mapping: SupplierMapping) => Promise<boolean>
+  importSupplierMappings: (
+    mappings: SupplierMapping[]
+  ) => Promise<{ imported: number; updated: number }>
 
   // File check
   checkFileExists: (filePath: string) => Promise<boolean>

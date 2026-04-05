@@ -18,7 +18,9 @@ import {
   FolderOutput,
   FileSpreadsheet,
   Upload,
-  RotateCcw
+  RotateCcw,
+  FileUp,
+  Loader2
 } from 'lucide-react'
 
 interface SupplierMapping {
@@ -55,6 +57,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     defaultAccountLabel: ''
   })
   const [isAdding, setIsAdding] = useState(false)
+  const [csvImporting, setCsvImporting] = useState(false)
+  const [csvImportMessage, setCsvImportMessage] = useState<{
+    text: string
+    type: 'success' | 'warn' | 'error'
+  } | null>(null)
+  const csvFileInputRef = useRef<HTMLInputElement>(null)
 
   const loadData = useCallback(async () => {
     const [key, supplierMappings] = await Promise.all([
@@ -116,6 +124,97 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
   const handleDeleteMapping = async (invoiceName: string): Promise<void> => {
     await window.api.removeSupplierMapping(invoiceName)
     loadData()
+  }
+
+  const handleCsvImport = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setCsvImporting(true)
+    setCsvImportMessage(null)
+
+    try {
+      const text = await file.text()
+      const lines = text.split(/\r?\n/)
+
+      // Charger le plan comptable actuel via IPC, fallback sur le plan par defaut
+      const customPlan = await window.api.getPlanComptable()
+      const { planComptable: defaultPlan } = await import('@/data/planComptable')
+      const effectivePlan = customPlan && customPlan.length > 0 ? customPlan : defaultPlan
+
+      // Construire une map numero -> libelle pour lookup rapide
+      const planMap = new Map<string, string>(effectivePlan.map((c) => [c.numero, c.libelle]))
+
+      let ignored = 0
+      const toImport: SupplierMapping[] = []
+
+      for (let i = 0; i < lines.length; i++) {
+        const raw = lines[i].trim()
+        if (!raw) continue
+
+        // Heuristique header : skip la 1ere ligne si la 2e colonne n'est pas un numero
+        if (i === 0) {
+          const cols = raw.split(';')
+          const secondCol = (cols[1] || '').trim().replace(/^["']|["']$/g, '')
+          // C'est un header si la 2e colonne n'est pas un numero de compte
+          if (secondCol && !/^\d+$/.test(secondCol)) continue
+        }
+
+        // Parser la ligne : separateur point-virgule, gestion des guillemets
+        // Format attendu : nom_fournisseur;numero_compte
+        const sep = ';'
+        const firstSep = raw.indexOf(sep)
+        if (firstSep === -1) {
+          ignored++
+          continue
+        }
+
+        const rawName = raw.slice(0, firstSep).trim().replace(/^["']|["']$/g, '')
+        const rawAccount = raw.slice(firstSep + 1).trim().replace(/^["']|["']$/g, '')
+
+        if (!rawName) {
+          ignored++
+          continue
+        }
+
+        // Valider le compte dans le plan comptable
+        const accountLibelle = planMap.get(rawAccount)
+        const validAccount = accountLibelle !== undefined
+
+        toImport.push({
+          invoiceName: rawName,
+          shortName: rawName,
+          defaultAccount: validAccount ? rawAccount : '',
+          defaultAccountLabel: validAccount ? accountLibelle! : ''
+        })
+      }
+
+      const result = await window.api.importSupplierMappings(toImport)
+      const imported = result.imported
+      const updated = result.updated
+
+      await loadData()
+
+      const parts: string[] = []
+      if (imported > 0) parts.push(`${imported} importe${imported > 1 ? 's' : ''}`)
+      if (updated > 0) parts.push(`${updated} mis a jour`)
+      if (ignored > 0) parts.push(`${ignored} ignore${ignored > 1 ? 's' : ''} (lignes invalides)`)
+
+      const total = imported + updated
+      if (total === 0) {
+        setCsvImportMessage({ text: 'Aucun fournisseur importe.', type: 'warn' })
+      } else {
+        setCsvImportMessage({ text: parts.join(', '), type: 'success' })
+      }
+    } catch (err) {
+      setCsvImportMessage({
+        text: `Erreur : ${err instanceof Error ? err.message : String(err)}`,
+        type: 'error'
+      })
+    } finally {
+      setCsvImporting(false)
+      if (csvFileInputRef.current) csvFileInputRef.current.value = ''
+    }
   }
 
   const startEditing = (index: number): void => {
@@ -356,11 +455,55 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
                   Associez un nom de fournisseur à un nom court et un compte comptable par défaut.
                 </p>
               </div>
-              <Button variant="outline" size="sm" onClick={startAdding}>
-                <Plus className="h-3 w-3 mr-1" />
-                Ajouter
-              </Button>
+              <div className="flex gap-2">
+                <input
+                  ref={csvFileInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={handleCsvImport}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setCsvImportMessage(null)
+                    csvFileInputRef.current?.click()
+                  }}
+                  disabled={csvImporting}
+                >
+                  {csvImporting ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      Import...
+                    </>
+                  ) : (
+                    <>
+                      <FileUp className="h-3 w-3 mr-1" />
+                      Importer CSV
+                    </>
+                  )}
+                </Button>
+                <Button size="sm" onClick={startAdding}>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Ajouter
+                </Button>
+              </div>
             </div>
+
+            {csvImportMessage && (
+              <p
+                className={`text-sm font-medium ${
+                  csvImportMessage.type === 'success'
+                    ? 'text-green-400'
+                    : csvImportMessage.type === 'warn'
+                      ? 'text-amber-400'
+                      : 'text-destructive'
+                }`}
+              >
+                {csvImportMessage.text}
+              </p>
+            )}
 
             {/* Add form */}
             {isAdding && (
