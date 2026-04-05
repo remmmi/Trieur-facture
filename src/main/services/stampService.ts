@@ -11,6 +11,12 @@ export interface VentilationLine {
   amount: string
 }
 
+// Formate un montant brut "120.00" en "120,00€"
+function formatAmount(amount: string): string {
+  if (!amount) return ''
+  return amount.replace('.', ',') + '\u20ac'
+}
+
 export interface ProcessData {
   sourcePath: string
   accountNumber: string
@@ -171,7 +177,7 @@ function stampMultiple(
   // Compute the width needed for the widest line
   const texts = lines.map((l) => {
     const label = includeLabel && l.accountLabel ? ` - ${l.accountLabel}` : ''
-    return `${l.accountNumber}${label} -> ${l.amount}`
+    return `${l.accountNumber}${label} : ${formatAmount(l.amount)}`
   })
   const maxTextWidth = texts.reduce(
     (acc, t) => Math.max(acc, font.widthOfTextAtSize(t, fontSize)),

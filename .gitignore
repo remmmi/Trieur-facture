@@ -10,3 +10,4 @@ target_test/
 target_test.zip
 electron.vite.config.*.mjs
 test-data/
+crash/
