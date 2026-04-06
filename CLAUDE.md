@@ -4,8 +4,8 @@
 Application desktop Electron pour trier, tamponner (numero comptable) et classer des factures PDF/DOC/DOCX.
 
 **Repo** : https://github.com/remmmi/Trieur-facture branche main
-**Version** : 1.0.1
-**Derniere release** : https://github.com/remmmi/Trieur-facture/releases/tag/v1.0.1
+**Version** : 1.0.3
+**Derniere release** : https://github.com/remmmi/Trieur-facture/releases/tag/v1.0.3
 
 ## Plateformes
 - **Developpement/test** : Debian (Linux)
@@ -24,7 +24,8 @@ Application desktop Electron pour trier, tamponner (numero comptable) et classer
 - pdfjs-dist **v4.10.38** (preview PDF) -- ATTENTION : v5.x incompatible avec Electron 39 (Map.getOrInsertComputed)
 - pdf-lib (tampon PDF), libreoffice-convert (conversion DOC->PDF)
 - @anthropic-ai/sdk (extraction IA des factures via Claude Sonnet 4, avec AbortController)
-- react-resizable-panels v2 (panneaux redimensionnables)
+- react-resizable-panels v2 (panneaux redimensionnables) -- PAS v4 (API differente, drag casse)
+- fuse.js v7 (fuzzy matching fournisseurs, threshold 0.3, check ambiguite)
 - date-fns (dates)
 
 ## Commandes
@@ -124,7 +125,8 @@ Trois sub-agents specialises dans `.claude/agents/` :
 - Zone recap : sommes HT/TTC + ecart avec estimation IA (vert si OK, rouge + flash si ecart)
 - L'IA indique si le montant detecte est HT ou TTC (amountType)
 - Tampons empiles verticalement sur le PDF, sans rotation
-- Format par ligne : `{numero} -> {montant}` (ou `{numero} - {libelle} -> {montant}` si option activee)
+- Format par ligne : `{numero} : {montant}` (ou `{numero} - {libelle} : {montant}` si option activee)
+- Montants formates en virgule decimale + symbole euro : `120,00€` (pas `120.00`)
 - Max 8 lignes, taille police adaptative (min 7pt)
 - Toggle OFF : reset form + restauration derniere suggestion IA (pas de re-appel API)
 
@@ -134,9 +136,18 @@ Trois sub-agents specialises dans `.claude/agents/` :
 - Extrait : fournisseur, numero facture, date, montant HT/TTC/TVA, type du montant (HT ou TTC)
 - Pre-classification : si le doc ne semble pas etre une facture (rapport, >4 pages, pas de montant), suggere 000000 Documents divers
 - Detection ticket de caisse (format etroit, BVI, CB) -> "ticket-caisse" dans partie ajustable
-- Matching fournisseur flou (normalise tirets/espaces/casse) vers les mappings
+- Matching fournisseur fuzzy via Fuse.js (threshold 0.3, check ambiguite si 2e candidat trop proche)
+- Detection mapping orphelin : si le compte du fournisseur matche n'existe plus dans le plan comptable, modale OrphanAccountDialog pour le corriger
 - Gestion erreurs : credit epuise, rate limit, auth invalide, reseau KO
 - Animation sparkle pulse cardiaque blanc/fuchsia pendant le traitement
+
+## Import CSV fournisseurs
+- Bouton "Importer CSV" dans Settings > Fournisseurs
+- Separateur point-virgule (;), 1 ou 2 colonnes : nom;compte (compte optionnel)
+- Si compte introuvable dans le plan comptable -> vide (pas importe avec un mauvais numero)
+- Si une seule colonne (pas de ;) -> import du nom seul, compte vide
+- Header auto-detecte et skippe (si 2e colonne n'est pas un chiffre)
+- Handler IPC bulk `import-supplier-mappings` (1 seul load + save, pas N appels sequentiels)
 
 ## Ignorer un document
 - Bouton rouge "Ignorer ce document" sous le bouton Valider
