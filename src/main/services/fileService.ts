@@ -1,6 +1,6 @@
 import { dialog } from 'electron'
 import { readdir, stat } from 'fs/promises'
-import { join, extname } from 'path'
+import { join, extname, dirname } from 'path'
 
 export interface FileInfo {
   name: string
@@ -16,15 +16,19 @@ let lastDestPath: string | undefined
 
 export async function selectFolder(): Promise<string | null> {
   const result = await dialog.showOpenDialog({
-    properties: ['openDirectory'],
-    title: 'Sélectionner le dossier contenant les factures',
-    defaultPath: lastSourcePath ?? lastDestPath
+    properties: ['openFile'],
+    title: 'Choisir une facture dans le dossier source',
+    defaultPath: lastSourcePath ?? lastDestPath,
+    filters: [
+      { name: 'Documents', extensions: ['pdf', 'doc', 'docx'] }
+    ]
   })
   if (result.canceled || result.filePaths.length === 0) {
     return null
   }
-  lastSourcePath = result.filePaths[0]
-  return lastSourcePath
+  const folder = dirname(result.filePaths[0])
+  lastSourcePath = folder
+  return folder
 }
 
 export async function scanFolder(folderPath: string): Promise<FileInfo[]> {
@@ -60,7 +64,7 @@ export async function scanFolder(folderPath: string): Promise<FileInfo[]> {
 export async function selectDestinationFolder(): Promise<string | null> {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory'],
-    title: 'Sélectionner le dossier racine de destination (comptabilité)',
+    title: 'Dossier de destination (comptabilite)',
     defaultPath: lastDestPath ?? lastSourcePath
   })
   if (result.canceled || result.filePaths.length === 0) {
