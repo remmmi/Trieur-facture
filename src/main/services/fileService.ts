@@ -28,7 +28,9 @@ export async function selectFolder(): Promise<string | null> {
 }
 
 export async function scanFolder(folderPath: string): Promise<FileInfo[]> {
+  console.log('[scanFolder] Scanning:', folderPath, '(length:', folderPath.length, ')')
   const entries = await readdir(folderPath)
+  console.log('[scanFolder] Found', entries.length, 'entries')
   const files: FileInfo[] = []
 
   for (const entry of entries) {
@@ -36,17 +38,22 @@ export async function scanFolder(folderPath: string): Promise<FileInfo[]> {
     const ext = extname(entry).toLowerCase()
     if (!SUPPORTED_EXTENSIONS.includes(ext)) continue
 
-    const fileStat = await stat(fullPath)
-    if (!fileStat.isFile()) continue
+    try {
+      const fileStat = await stat(fullPath)
+      if (!fileStat.isFile()) continue
 
-    files.push({
-      name: entry,
-      path: fullPath,
-      extension: ext,
-      size: fileStat.size
-    })
+      files.push({
+        name: entry,
+        path: fullPath,
+        extension: ext,
+        size: fileStat.size
+      })
+    } catch (err) {
+      console.warn('[scanFolder] Cannot stat file (online-only or path issue?):', fullPath, err)
+    }
   }
 
+  console.log('[scanFolder] Matched', files.length, 'supported files')
   return files.sort((a, b) => a.name.localeCompare(b.name))
 }
 

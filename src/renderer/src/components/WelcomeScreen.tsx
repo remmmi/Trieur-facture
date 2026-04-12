@@ -2,7 +2,27 @@ import { useEffect, useState } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import { FolderOpen, FolderOutput, Settings } from 'lucide-react'
+import { FolderOpen, FolderOutput, Settings, Copy, Check } from 'lucide-react'
+
+function CopyButton({ text }: { text: string }): React.JSX.Element {
+  const [copied, setCopied] = useState(false)
+  const handleCopy = (e: React.MouseEvent): void => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+      title="Copier le chemin"
+    >
+      {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+    </button>
+  )
+}
 
 interface WelcomeScreenProps {
   onOpenSettings: () => void
@@ -112,9 +132,12 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
               )}
             </Button>
             {sourceFolder && (
-              <p className="text-xs text-muted-foreground pl-1">
-                {fileQueue.length} fichier(s) trouvé(s)
-              </p>
+              <div className="flex items-center gap-1">
+                <p className="text-xs text-muted-foreground pl-1 flex-1">
+                  {fileQueue.length} fichier(s) trouve(s)
+                </p>
+                <CopyButton text={sourceFolder} />
+              </div>
             )}
           </div>
 
@@ -131,6 +154,11 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
                 'Dossier destination (comptabilité)'
               )}
             </Button>
+            {destinationFolder && (
+              <div className="flex justify-end">
+                <CopyButton text={destinationFolder} />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4 pl-1">
