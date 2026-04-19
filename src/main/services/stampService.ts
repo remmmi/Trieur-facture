@@ -29,6 +29,7 @@ export interface ProcessData {
   stampRotation: number
   customDest?: boolean
   useQuarterMode?: boolean
+  filingGranularity?: 'month' | 'quarter' | 'quarter-month'
   ventilation?: VentilationLine[]
   stampIncludeLabel?: boolean
   paid?: string
@@ -269,9 +270,17 @@ export async function processDocument(data: ProcessData): Promise<ProcessResult>
     const parsed = parseIsoDate(date)
     if (!parsed) throw new Error(`Date invalide: ${date}`)
     const { year, month: monthNum } = parsed
-    const subFolder = useQuarterMode
-      ? getQuarter(monthNum)
-      : String(monthNum).padStart(2, '0')
+    const granularity = data.filingGranularity || (useQuarterMode ? 'quarter' : 'month')
+    const monthStr = String(monthNum).padStart(2, '0')
+    const quarterStr = getQuarter(monthNum)
+    let subFolder: string
+    if (granularity === 'quarter-month') {
+      subFolder = join(quarterStr, monthStr)
+    } else if (granularity === 'quarter') {
+      subFolder = quarterStr
+    } else {
+      subFolder = monthStr
+    }
     destFolder = join(baseFolder, String(year), subFolder)
   }
   await mkdir(destFolder, { recursive: true })
@@ -350,6 +359,7 @@ export interface AiSuggestion {
   accountNumber?: string
   accountLabel?: string
   date?: string
+  paymentDate?: string
   fixedPart?: string
   adjustablePart?: string
   amount?: string

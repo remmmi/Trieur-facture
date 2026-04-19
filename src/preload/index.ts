@@ -49,12 +49,22 @@ const api = {
   getUseQuarterMode: (): Promise<boolean> => ipcRenderer.invoke('get-use-quarter-mode'),
   setUseQuarterMode: (value: boolean): Promise<boolean> =>
     ipcRenderer.invoke('set-use-quarter-mode', value),
+  getFilingGranularity: (): Promise<'month' | 'quarter' | 'quarter-month'> =>
+    ipcRenderer.invoke('get-filing-granularity'),
+  setFilingGranularity: (value: string): Promise<boolean> =>
+    ipcRenderer.invoke('set-filing-granularity', value),
   getPrefixAccount: (): Promise<boolean> => ipcRenderer.invoke('get-prefix-account'),
   setPrefixAccount: (value: boolean): Promise<boolean> =>
     ipcRenderer.invoke('set-prefix-account', value),
   getLargeFileThreshold: (): Promise<number> => ipcRenderer.invoke('get-large-file-threshold'),
   setLargeFileThreshold: (value: number): Promise<boolean> =>
     ipcRenderer.invoke('set-large-file-threshold', value),
+  getPaymentModes: (): Promise<string> => ipcRenderer.invoke('get-payment-modes'),
+  setPaymentModes: (value: string): Promise<boolean> =>
+    ipcRenderer.invoke('set-payment-modes', value),
+  getUsePaymentDateFiling: (): Promise<boolean> => ipcRenderer.invoke('get-use-payment-date-filing'),
+  setUsePaymentDateFiling: (value: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('set-use-payment-date-filing', value),
   getPageCount: (filePath: string): Promise<number> =>
     ipcRenderer.invoke('get-page-count', filePath),
   checkFolderMode: (basePath: string, year: string): Promise<'month' | 'quarter' | 'unknown'> =>

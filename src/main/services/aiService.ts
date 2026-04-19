@@ -27,7 +27,8 @@ Reponds UNIQUEMENT avec le JSON, sans markdown, sans commentaire.
 {
   "supplierName": "Le nom de l'enseigne ou du fournisseur (ex: LEROY MERLIN, CARREFOUR, etc.)",
   "invoiceNumber": "Le numero de facture ou de ticket. Voir regles ci-dessous.",
-  "date": "La date du document au format YYYY-MM-DD. Chercher dans l'en-tete, le pied de page, ou pres du code-barres.",
+  "date": "La date d'emission du document au format YYYY-MM-DD. Chercher dans l'en-tete, le pied de page, ou pres du code-barres.",
+  "paymentDate": "La date de paiement/prelevement au format YYYY-MM-DD. Chercher pres des mentions : preleve le, prelevement SEPA, prelevement automatique, date de prelevement, date d'echeance, paye le, debite le. Si aucune date de paiement n'est trouvee, mettre null.",
   "totalHT": "Le montant HT (souvent apres la mention HT ou dans le recapitulatif TVA)",
   "totalTTC": "Le montant TTC final paye (le TOTAL en gras, ou le montant CB/paiement)",
   "tvaAmount": "Le montant de TVA",
@@ -125,6 +126,7 @@ export async function extractInvoiceData(pdfPath: string): Promise<AiSuggestion 
     return {
       accountNumber: parsed.suggestedAccount === '000000' ? '000000' : undefined,
       date: parsed.date || undefined,
+      paymentDate: parsed.paymentDate || undefined,
       fixedPart: parsed.supplierName || undefined,
       adjustablePart: parsed.suggestedAccount === '000000' ? 'documents-divers' : (parsed.invoiceNumber || undefined),
       amount: parsed.totalTTC || parsed.totalHT || undefined,

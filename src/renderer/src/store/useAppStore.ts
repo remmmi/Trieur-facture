@@ -11,20 +11,24 @@ export interface FormData {
   accountNumber: string
   accountLabel: string
   date: string
+  paymentDate: string
   fixedPart: string
   adjustablePart: string
   amount: string
   paid: string
+  paymentMode: string
 }
 
 const defaultFormData: FormData = {
   accountNumber: '',
   accountLabel: '',
   date: new Date().toISOString().slice(0, 10),
+  paymentDate: '',
   fixedPart: '',
   adjustablePart: '',
   amount: '',
-  paid: ''
+  paid: '',
+  paymentMode: ''
 }
 
 interface AppState {

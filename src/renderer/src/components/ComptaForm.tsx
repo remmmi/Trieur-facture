@@ -3,14 +3,17 @@ import { useAppStore } from '@/store/useAppStore'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SaveMappingDialog } from '@/components/SaveMappingDialog'
 import { OrphanAccountDialog } from '@/components/OrphanAccountDialog'
 import { AccountCombobox } from '@/components/AccountCombobox'
 import { SplitLines } from '@/components/SplitLines'
 import type { SplitLine } from '@/components/SplitLines'
-import { format } from 'date-fns'
+import { format, parse } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { Check, FolderTree, Loader2, Sparkles, X } from 'lucide-react'
+import { CalendarIcon, Check, FolderTree, Loader2, Sparkles, X } from 'lucide-react'
 import { sanitizeFileName, parseIsoDate } from '@/lib/sanitize'
 
 interface SupplierMapping {
@@ -63,7 +66,10 @@ export function ComptaForm(): React.JSX.Element {
   const [includeAmount, setIncludeAmount] = useState(false)
   const [stampIncludeLabel, setStampIncludeLabel] = useState(false)
   const [useQuarterMode, setUseQuarterMode] = useState(false)
+  const [filingGranularity, setFilingGranularity] = useState<'month' | 'quarter' | 'quarter-month'>('month')
   const [prefixAccount, setPrefixAccount] = useState(false)
+  const [paymentModeOptions, setPaymentModeOptions] = useState<string[]>(['CB', 'Virement', 'Prelevement'])
+  const [usePaymentDateFiling, setUsePaymentDateFiling] = useState(false)
   const processingGuard = useRef(false)
   const [customDestFolder, setCustomDestFolder] = useState<string | null>(null)
   const currentFile = fileQueue[currentIndex]
@@ -102,7 +108,13 @@ export function ComptaForm(): React.JSX.Element {
     window.api.getIncludeAmount().then(setIncludeAmount)
     window.api.getStampIncludeLabel().then(setStampIncludeLabel)
     window.api.getUseQuarterMode().then(setUseQuarterMode)
+    window.api.getFilingGranularity().then(setFilingGranularity)
     window.api.getPrefixAccount().then(setPrefixAccount)
+    window.api.getPaymentModes().then((modes) => {
+      const list = modes.split('|').map((m) => m.trim()).filter(Boolean)
+      if (list.length > 0) setPaymentModeOptions(list)
+    })
+    window.api.getUsePaymentDateFiling().then(setUsePaymentDateFiling)
   }, [])
 
   // Load supplier mappings
@@ -245,16 +257,25 @@ export function ComptaForm(): React.JSX.Element {
     return 'T4'
   }
 
+  // --- Filing date: emission or payment depending on mode ---
+  const filingDate = usePaymentDateFiling && currentFormData.paymentDate
+    ? currentFormData.paymentDate
+    : currentFormData.date
+
   // --- Path preview ---
   const pathPreview = useMemo(() => {
-    if (!destinationFolder || !currentFormData.date) return null
-    const parsed = parseIsoDate(currentFormData.date)
+    if (!destinationFolder || !filingDate) return null
+    const parsed = parseIsoDate(filingDate)
     if (!parsed) return null
 
     const { year, month: monthNum } = parsed
-    const period = useQuarterMode
-      ? getQuarterLabel(monthNum)
-      : String(monthNum).padStart(2, '0')
+    const monthStr = String(monthNum).padStart(2, '0')
+    const quarterStr = getQuarterLabel(monthNum)
+    const period = filingGranularity === 'quarter-month'
+      ? `${quarterStr}/${monthStr}`
+      : filingGranularity === 'quarter'
+        ? quarterStr
+        : monthStr
     const parts: string[] = []
     if (prefixAccount) {
       if (ventilationEnabled) {
@@ -285,7 +306,7 @@ export function ComptaForm(): React.JSX.Element {
   }, [
     destinationFolder,
     customDestFolder,
-    currentFormData.date,
+    filingDate,
     currentFormData.fixedPart,
     currentFormData.adjustablePart,
     currentFormData.amount,
@@ -293,19 +314,22 @@ export function ComptaForm(): React.JSX.Element {
     includeAmount,
     prefixAccount,
     ventilationEnabled,
-    useQuarterMode
+    useQuarterMode,
+    filingGranularity
   ])
 
-  const dateLabel = currentFormData.date
-    ? (() => {
-        const p = parseIsoDate(currentFormData.date)
-        if (!p) return ''
-        return format(new Date(p.year, p.month - 1, p.day), 'EEEE d MMMM yyyy', { locale: fr })
-      })()
-    : ''
+  const formatDateLabel = (isoDate: string): string => {
+    if (!isoDate) return ''
+    const p = parseIsoDate(isoDate)
+    if (!p) return ''
+    return format(new Date(p.year, p.month - 1, p.day), 'EEEE d MMMM yyyy', { locale: fr })
+  }
+
+  const dateLabel = formatDateLabel(currentFormData.date)
+  const paymentDateLabel = formatDateLabel(currentFormData.paymentDate)
 
   const canValidate =
-    currentFormData.date &&
+    filingDate &&
     currentFormData.fixedPart &&
     currentPdfPath &&
     destinationFolder &&
@@ -331,6 +355,7 @@ export function ComptaForm(): React.JSX.Element {
           ...(s.accountNumber && { accountNumber: s.accountNumber }),
           ...(s.accountLabel && { accountLabel: s.accountLabel }),
           ...(s.date && { date: s.date }),
+          ...(s.paymentDate && { paymentDate: s.paymentDate }),
           ...(s.fixedPart && { fixedPart: s.fixedPart }),
           ...(s.adjustablePart && { adjustablePart: s.adjustablePart }),
           ...(s.amount && { amount: s.amount })
@@ -384,7 +409,7 @@ export function ComptaForm(): React.JSX.Element {
         })
         destPath = `${effectiveBase}/${fileName}.pdf`
       } else {
-        const parsed = parseIsoDate(currentFormData.date)
+        const parsed = parseIsoDate(filingDate)
         if (!parsed) {
           setIsProcessing(false)
           processingGuard.current = false
@@ -392,9 +417,13 @@ export function ComptaForm(): React.JSX.Element {
           return
         }
         const { year, month: monthNum } = parsed
-        const period = useQuarterMode
-          ? getQuarterLabel(monthNum)
-          : String(monthNum).padStart(2, '0')
+        const mStr = String(monthNum).padStart(2, '0')
+        const qStr = getQuarterLabel(monthNum)
+        const period = filingGranularity === 'quarter-month'
+          ? `${qStr}/${mStr}`
+          : filingGranularity === 'quarter'
+            ? qStr
+            : mStr
         fileName = sanitizeFileName(nameParts.filter(Boolean).join(' - '), {
           destFolderLength: `${effectiveBase}/${year}/${period}`.length
         })
@@ -402,21 +431,22 @@ export function ComptaForm(): React.JSX.Element {
 
         // Detect folder mode conflict
         const folderMode = await window.api.checkFolderMode(effectiveBase, String(year))
-        if (folderMode === 'month' && useQuarterMode) {
+        const usesQuarters = filingGranularity === 'quarter' || filingGranularity === 'quarter-month'
+        if (folderMode === 'month' && usesQuarters) {
           setIsProcessing(false)
           processingGuard.current = false
           setMessage({
             type: 'warning',
-            text: `Le dossier ${year}/ contient des sous-dossiers mensuels (01, 02...) mais le mode trimestre est actif. Desactivez le mode trimestre dans les parametres ou forcez en cliquant a nouveau sur Valider.`
+            text: `Le dossier ${year}/ contient des sous-dossiers mensuels (01, 02...) mais le mode trimestre est actif. Changez la granularite dans les parametres ou forcez en cliquant a nouveau sur Valider.`
           })
           return
         }
-        if (folderMode === 'quarter' && !useQuarterMode) {
+        if (folderMode === 'quarter' && filingGranularity === 'month') {
           setIsProcessing(false)
           processingGuard.current = false
           setMessage({
             type: 'warning',
-            text: `Le dossier ${year}/ contient des sous-dossiers trimestriels (T1, T2...) mais le mode mensuel est actif. Activez le mode trimestre dans les parametres ou forcez en cliquant a nouveau sur Valider.`
+            text: `Le dossier ${year}/ contient des sous-dossiers trimestriels (T1, T2...) mais le mode mensuel est actif. Changez la granularite dans les parametres ou forcez en cliquant a nouveau sur Valider.`
           })
           return
         }
@@ -449,17 +479,24 @@ export function ComptaForm(): React.JSX.Element {
         sourcePath: currentPdfPath,
         accountNumber: ventilationEnabled ? (ventilation?.[0]?.accountNumber ?? '') : currentFormData.accountNumber,
         accountLabel: ventilationEnabled ? (ventilation?.[0]?.accountLabel ?? '') : currentFormData.accountLabel,
-        date: currentFormData.date,
+        date: filingDate,
         baseFolder: customDestFolder || destinationFolder,
         fileName,
         customDest: !!customDestFolder,
         useQuarterMode,
+        filingGranularity,
         stampX,
         stampY,
         stampRotation,
         ventilation,
         stampIncludeLabel,
-        paid: currentFormData.paid || undefined
+        paid: (() => {
+          const mode = currentFormData.paymentMode
+          const text = currentFormData.paid
+          if (mode && text) return `${mode} ${text}`
+          if (mode) return mode
+          return text || undefined
+        })()
       })
 
       if (result.success) {
@@ -573,6 +610,7 @@ export function ComptaForm(): React.JSX.Element {
           accountNumber: suggestion.accountNumber || '',
           accountLabel: suggestion.accountLabel || '',
           date: suggestion.date || '',
+          paymentDate: suggestion.paymentDate || '',
           fixedPart: suggestion.fixedPart || '',
           adjustablePart: suggestion.adjustablePart || '',
           amount: suggestion.amount || ''
@@ -582,6 +620,7 @@ export function ComptaForm(): React.JSX.Element {
           ...(suggestion.accountNumber && { accountNumber: suggestion.accountNumber }),
           ...(suggestion.accountLabel && { accountLabel: suggestion.accountLabel }),
           ...(suggestion.date && parseIsoDate(suggestion.date) && { date: suggestion.date }),
+          ...(suggestion.paymentDate && parseIsoDate(suggestion.paymentDate) && { paymentDate: suggestion.paymentDate }),
           ...(suggestion.fixedPart && { fixedPart: suggestion.fixedPart }),
           ...(suggestion.adjustablePart && { adjustablePart: suggestion.adjustablePart }),
           ...(suggestion.amount && { amount: suggestion.amount })
@@ -751,16 +790,36 @@ export function ComptaForm(): React.JSX.Element {
         )}
       </div>
 
-      {/* Date */}
+      {/* Date picker with calendar */}
       <div className="space-y-2">
-        <Label htmlFor="date">Date du document</Label>
-        <Input
-          id="date"
-          type="date"
-          value={currentFormData.date}
-          onChange={(e) => setFormData({ date: e.target.value })}
-        />
-        {dateLabel && <p className="text-xs text-muted-foreground capitalize">{dateLabel}</p>}
+        <Label>Date du document</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+              {dateLabel ? (
+                <span className="capitalize">{dateLabel}</span>
+              ) : (
+                <span className="text-muted-foreground">Choisir une date...</span>
+              )}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={currentFormData.date ? parse(currentFormData.date, 'yyyy-MM-dd', new Date()) : undefined}
+              onSelect={(day) => {
+                if (day) {
+                  setFormData({ date: format(day, 'yyyy-MM-dd') })
+                }
+              }}
+              defaultMonth={currentFormData.date ? parse(currentFormData.date, 'yyyy-MM-dd', new Date()) : undefined}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Toggle Ventilation */}
@@ -838,15 +897,71 @@ export function ComptaForm(): React.JSX.Element {
         )}
       </div>
 
-      {/* Paid stamp */}
+      {/* Payment date picker */}
       <div className="space-y-2">
-        <Label htmlFor="paid">Paye (tampon bleu optionnel)</Label>
-        <Input
-          id="paid"
-          placeholder="Ex: CB 04/2026, Cheque 12345..."
-          value={currentFormData.paid}
-          onChange={(e) => setFormData({ paid: e.target.value })}
-        />
+        <Label>
+          Date de paiement
+          {usePaymentDateFiling && (
+            <span className="ml-2 text-xs font-normal text-primary">(utilisee pour le classement)</span>
+          )}
+        </Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+              {paymentDateLabel ? (
+                <span className="capitalize">{paymentDateLabel}</span>
+              ) : (
+                <span className="text-muted-foreground">Date de paiement...</span>
+              )}
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={currentFormData.paymentDate ? parse(currentFormData.paymentDate, 'yyyy-MM-dd', new Date()) : undefined}
+              onSelect={(day) => {
+                if (day) {
+                  setFormData({ paymentDate: format(day, 'yyyy-MM-dd') })
+                }
+              }}
+              defaultMonth={currentFormData.paymentDate ? parse(currentFormData.paymentDate, 'yyyy-MM-dd', new Date()) : undefined}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Payment mode + Paid stamp */}
+      <div className="space-y-2">
+        <Label>{"Pay\u00e9 (tampon bleu optionnel)"}</Label>
+        <div className="flex gap-2">
+          <Select
+            value={currentFormData.paymentMode || '__none__'}
+            onValueChange={(value) => {
+              setFormData({ paymentMode: value === '__none__' ? '' : value })
+            }}
+          >
+            <SelectTrigger className="w-[140px] shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">&nbsp;</SelectItem>
+              {paymentModeOptions.map((mode) => (
+                <SelectItem key={mode} value={mode}>{mode}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            id="paid"
+            placeholder="Ex: 04/2026, Cheque 12345..."
+            value={currentFormData.paid}
+            onChange={(e) => setFormData({ paid: e.target.value })}
+            className="flex-1"
+          />
+        </div>
       </div>
 
       {/* Path preview - clickable to change destination */}

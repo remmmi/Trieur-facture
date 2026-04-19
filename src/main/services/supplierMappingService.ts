@@ -27,9 +27,12 @@ export interface AppConfig {
   customPlanComptable: PlanComptableEntry[] | null
   includeAmountInFilename: boolean
   useQuarterMode: boolean
+  filingGranularity: 'month' | 'quarter' | 'quarter-month'
   stampIncludeLabel: boolean
   prefixAccountInFilename: boolean
   largeFilePageThreshold: number
+  paymentModes: string
+  usePaymentDateFiling: boolean
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -40,9 +43,12 @@ const DEFAULT_CONFIG: AppConfig = {
   customPlanComptable: null,
   includeAmountInFilename: false,
   useQuarterMode: false,
+  filingGranularity: 'month',
   stampIncludeLabel: false,
   prefixAccountInFilename: false,
-  largeFilePageThreshold: 8
+  largeFilePageThreshold: 8,
+  paymentModes: 'CB|Virement|Prelevement',
+  usePaymentDateFiling: false
 }
 
 function getConfigPath(): string {
@@ -320,6 +326,21 @@ export async function setUseQuarterMode(value: boolean): Promise<void> {
   await saveConfig(config)
 }
 
+export async function getFilingGranularity(): Promise<'month' | 'quarter' | 'quarter-month'> {
+  const config = await loadConfig()
+  if (config.filingGranularity) return config.filingGranularity
+  // Migration: derive from old boolean
+  return config.useQuarterMode ? 'quarter' : 'month'
+}
+
+export async function setFilingGranularity(value: 'month' | 'quarter' | 'quarter-month'): Promise<void> {
+  const config = await loadConfig()
+  config.filingGranularity = value
+  // Keep old field in sync for backward compat
+  config.useQuarterMode = value === 'quarter'
+  await saveConfig(config)
+}
+
 export async function getPrefixAccountInFilename(): Promise<boolean> {
   const config = await loadConfig()
   return config.prefixAccountInFilename ?? false
@@ -339,5 +360,27 @@ export async function getLargeFileThreshold(): Promise<number> {
 export async function setLargeFileThreshold(value: number): Promise<void> {
   const config = await loadConfig()
   config.largeFilePageThreshold = value
+  await saveConfig(config)
+}
+
+export async function getPaymentModes(): Promise<string> {
+  const config = await loadConfig()
+  return config.paymentModes ?? 'CB|Virement|Prelevement'
+}
+
+export async function setPaymentModes(value: string): Promise<void> {
+  const config = await loadConfig()
+  config.paymentModes = value
+  await saveConfig(config)
+}
+
+export async function getUsePaymentDateFiling(): Promise<boolean> {
+  const config = await loadConfig()
+  return config.usePaymentDateFiling ?? false
+}
+
+export async function setUsePaymentDateFiling(value: boolean): Promise<void> {
+  const config = await loadConfig()
+  config.usePaymentDateFiling = value
   await saveConfig(config)
 }

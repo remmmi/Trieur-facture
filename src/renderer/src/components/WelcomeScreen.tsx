@@ -39,11 +39,11 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
     fileQueue
   } = useAppStore()
 
-  const [useQuarterMode, setUseQuarterMode] = useState(false)
+  const [filingGranularity, setFilingGranularity] = useState<'month' | 'quarter' | 'quarter-month'>('month')
 
   // Load persisted settings on mount
   useEffect(() => {
-    window.api.getUseQuarterMode().then(setUseQuarterMode)
+    window.api.getFilingGranularity().then(setFilingGranularity)
   }, [])
 
   // Load persisted folders on mount
@@ -167,10 +167,10 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
               <input
                 type="radio"
                 name="granularite-welcome"
-                checked={!useQuarterMode}
+                checked={filingGranularity === 'month'}
                 onChange={async () => {
-                  setUseQuarterMode(false)
-                  await window.api.setUseQuarterMode(false)
+                  setFilingGranularity('month')
+                  await window.api.setFilingGranularity('month')
                 }}
                 className="h-3.5 w-3.5 accent-primary"
               />
@@ -180,14 +180,27 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
               <input
                 type="radio"
                 name="granularite-welcome"
-                checked={useQuarterMode}
+                checked={filingGranularity === 'quarter'}
                 onChange={async () => {
-                  setUseQuarterMode(true)
-                  await window.api.setUseQuarterMode(true)
+                  setFilingGranularity('quarter')
+                  await window.api.setFilingGranularity('quarter')
                 }}
                 className="h-3.5 w-3.5 accent-primary"
               />
               <span className="text-sm text-muted-foreground">Trimestre</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="radio"
+                name="granularite-welcome"
+                checked={filingGranularity === 'quarter-month'}
+                onChange={async () => {
+                  setFilingGranularity('quarter-month')
+                  await window.api.setFilingGranularity('quarter-month')
+                }}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              <span className="text-sm text-muted-foreground">T+Mois</span>
             </label>
           </div>
 

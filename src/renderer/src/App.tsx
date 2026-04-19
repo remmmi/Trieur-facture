@@ -25,6 +25,7 @@ function App(): React.JSX.Element {
           ...(suggestion.accountNumber && { accountNumber: suggestion.accountNumber }),
           ...(suggestion.accountLabel && { accountLabel: suggestion.accountLabel }),
           ...(suggestion.date && parseIsoDate(suggestion.date) && { date: suggestion.date }),
+          ...(suggestion.paymentDate && parseIsoDate(suggestion.paymentDate) && { paymentDate: suggestion.paymentDate }),
           ...(suggestion.fixedPart && { fixedPart: suggestion.fixedPart }),
           ...(suggestion.adjustablePart && { adjustablePart: suggestion.adjustablePart }),
           ...(suggestion.amount && { amount: suggestion.amount })

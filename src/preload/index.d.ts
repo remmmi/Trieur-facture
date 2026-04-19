@@ -25,6 +25,7 @@ export interface ProcessData {
   stampRotation: number
   customDest?: boolean
   useQuarterMode?: boolean
+  filingGranularity?: 'month' | 'quarter' | 'quarter-month'
   ventilation?: VentilationLine[]
   stampIncludeLabel?: boolean
   paid?: string
@@ -40,6 +41,7 @@ export interface AiSuggestion {
   accountNumber?: string
   accountLabel?: string
   date?: string
+  paymentDate?: string
   fixedPart?: string
   adjustablePart?: string
   amount?: string
@@ -95,10 +97,16 @@ export interface Api {
   setStampIncludeLabel: (value: boolean) => Promise<boolean>
   getUseQuarterMode: () => Promise<boolean>
   setUseQuarterMode: (value: boolean) => Promise<boolean>
+  getFilingGranularity: () => Promise<'month' | 'quarter' | 'quarter-month'>
+  setFilingGranularity: (value: string) => Promise<boolean>
   getPrefixAccount: () => Promise<boolean>
   setPrefixAccount: (value: boolean) => Promise<boolean>
   getLargeFileThreshold: () => Promise<number>
   setLargeFileThreshold: (value: number) => Promise<boolean>
+  getPaymentModes: () => Promise<string>
+  setPaymentModes: (value: string) => Promise<boolean>
+  getUsePaymentDateFiling: () => Promise<boolean>
+  setUsePaymentDateFiling: (value: boolean) => Promise<boolean>
   getPageCount: (filePath: string) => Promise<number>
   checkFolderMode: (basePath: string, year: string) => Promise<'month' | 'quarter' | 'unknown'>
 
