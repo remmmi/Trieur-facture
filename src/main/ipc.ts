@@ -33,10 +33,16 @@ import {
   setStampIncludeLabel,
   getUseQuarterMode,
   setUseQuarterMode,
+  getFilingGranularity,
+  setFilingGranularity,
   getPrefixAccountInFilename,
   setPrefixAccountInFilename,
   getLargeFileThreshold,
   setLargeFileThreshold,
+  getPaymentModes,
+  setPaymentModes,
+  getUsePaymentDateFiling,
+  setUsePaymentDateFiling,
   importPlanComptable,
   getPlanComptable,
   resetPlanComptable,
@@ -212,6 +218,12 @@ export async function registerIpcHandlers(): Promise<void> {
     return true
   })
 
+  ipcMain.handle('get-filing-granularity', async () => getFilingGranularity())
+  ipcMain.handle('set-filing-granularity', async (_event, value: string) => {
+    await setFilingGranularity(value as 'month' | 'quarter' | 'quarter-month')
+    return true
+  })
+
   ipcMain.handle('get-prefix-account', async () => getPrefixAccountInFilename())
   ipcMain.handle('set-prefix-account', async (_event, value: boolean) => {
     await setPrefixAccountInFilename(value)
@@ -221,6 +233,18 @@ export async function registerIpcHandlers(): Promise<void> {
   ipcMain.handle('get-large-file-threshold', async () => getLargeFileThreshold())
   ipcMain.handle('set-large-file-threshold', async (_event, value: number) => {
     await setLargeFileThreshold(value)
+    return true
+  })
+
+  ipcMain.handle('get-payment-modes', async () => getPaymentModes())
+  ipcMain.handle('set-payment-modes', async (_event, value: string) => {
+    await setPaymentModes(value)
+    return true
+  })
+
+  ipcMain.handle('get-use-payment-date-filing', async () => getUsePaymentDateFiling())
+  ipcMain.handle('set-use-payment-date-filing', async (_event, value: boolean) => {
+    await setUsePaymentDateFiling(value)
     return true
   })
   ipcMain.handle('get-page-count', async (_event, filePath: string) => {

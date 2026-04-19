@@ -45,9 +45,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
   const [apiKeyStatus, setApiKeyStatus] = useState<{ valid: boolean; error?: string } | null>(null)
   const [includeAmount, setIncludeAmount] = useState(false)
   const [stampIncludeLabel, setStampIncludeLabel] = useState(false)
-  const [useQuarterMode, setUseQuarterMode] = useState(false)
+  const [filingGranularity, setFilingGranularity] = useState<'month' | 'quarter' | 'quarter-month'>('month')
   const [prefixAccount, setPrefixAccount] = useState(false)
   const [largeFileThreshold, setLargeFileThreshold] = useState(8)
+  const [paymentModes, setPaymentModes] = useState('CB|Virement|Prelevement')
+  const [usePaymentDateFiling, setUsePaymentDateFiling] = useState(false)
   const [mappings, setMappings] = useState<SupplierMapping[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<SupplierMapping>({
@@ -73,9 +75,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     setMappings(supplierMappings)
     window.api.getIncludeAmount().then(setIncludeAmount)
     window.api.getStampIncludeLabel().then(setStampIncludeLabel)
-    window.api.getUseQuarterMode().then(setUseQuarterMode)
+    window.api.getFilingGranularity().then(setFilingGranularity)
     window.api.getPrefixAccount().then(setPrefixAccount)
     window.api.getLargeFileThreshold().then(setLargeFileThreshold)
+    window.api.getPaymentModes().then(setPaymentModes)
+    window.api.getUsePaymentDateFiling().then(setUsePaymentDateFiling)
   }, [])
 
   useEffect(() => {
@@ -380,6 +384,20 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
               <p className="text-xs text-muted-foreground pl-7">
                 Desactive : 601100 -- Active : 601100 - Achats fournitures
               </p>
+              <div className="space-y-1 pt-2">
+                <Label className="text-sm">Modes de paiement (tampon bleu)</Label>
+                <Input
+                  value={paymentModes}
+                  onChange={async (e) => {
+                    setPaymentModes(e.target.value)
+                    await window.api.setPaymentModes(e.target.value)
+                  }}
+                  placeholder="CB|Virement|Prelevement"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Liste separee par | -- Exemple : CB|Virement|Prelevement|Cheque
+                </p>
+              </div>
             </section>
 
             {/* Classement mode */}
@@ -390,10 +408,10 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
                   <input
                     type="radio"
                     name="granularite"
-                    checked={!useQuarterMode}
+                    checked={filingGranularity === 'month'}
                     onChange={async () => {
-                      setUseQuarterMode(false)
-                      await window.api.setUseQuarterMode(false)
+                      setFilingGranularity('month')
+                      await window.api.setFilingGranularity('month')
                     }}
                     className="h-4 w-4 accent-primary"
                   />
@@ -403,20 +421,53 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
                   <input
                     type="radio"
                     name="granularite"
-                    checked={useQuarterMode}
+                    checked={filingGranularity === 'quarter'}
                     onChange={async () => {
-                      setUseQuarterMode(true)
-                      await window.api.setUseQuarterMode(true)
+                      setFilingGranularity('quarter')
+                      await window.api.setFilingGranularity('quarter')
                     }}
                     className="h-4 w-4 accent-primary"
                   />
                   <span className="text-sm">Trimestre (T1-T4)</span>
                 </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="granularite"
+                    checked={filingGranularity === 'quarter-month'}
+                    onChange={async () => {
+                      setFilingGranularity('quarter-month')
+                      await window.api.setFilingGranularity('quarter-month')
+                    }}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span className="text-sm">Trimestre + Mois (T1/01)</span>
+                </label>
               </div>
               <p className="text-xs text-muted-foreground pl-7">
-                {useQuarterMode
-                  ? 'Exemple : Comptabilite/2026/T2/Fournisseur - FAC-001.pdf'
-                  : 'Exemple : Comptabilite/2026/04/Fournisseur - FAC-001.pdf'}
+                {filingGranularity === 'quarter-month'
+                  ? 'Exemple : Comptabilite/2026/T2/04/Fournisseur - FAC-001.pdf'
+                  : filingGranularity === 'quarter'
+                    ? 'Exemple : Comptabilite/2026/T2/Fournisseur - FAC-001.pdf'
+                    : 'Exemple : Comptabilite/2026/04/Fournisseur - FAC-001.pdf'}
+              </p>
+              <label className="flex items-center gap-3 cursor-pointer pt-2">
+                <input
+                  type="checkbox"
+                  checked={usePaymentDateFiling}
+                  onChange={async (e) => {
+                    setUsePaymentDateFiling(e.target.checked)
+                    await window.api.setUsePaymentDateFiling(e.target.checked)
+                  }}
+                  className="h-4 w-4 rounded border-input accent-primary"
+                />
+                <span className="text-sm">
+                  Classer par date de paiement (au lieu de la date d'emission)
+                </span>
+              </label>
+              <p className="text-xs text-muted-foreground pl-7">
+                L'IA tentera de detecter la date de prelevement/paiement sur la facture.
+                Le dossier de destination sera base sur cette date.
               </p>
             </section>
 
