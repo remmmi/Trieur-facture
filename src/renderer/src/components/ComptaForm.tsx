@@ -429,26 +429,29 @@ export function ComptaForm(): React.JSX.Element {
         })
         destPath = `${effectiveBase}/${year}/${period}/${fileName}.pdf`
 
-        // Detect folder mode conflict
-        const folderMode = await window.api.checkFolderMode(effectiveBase, String(year))
-        const usesQuarters = filingGranularity === 'quarter' || filingGranularity === 'quarter-month'
-        if (folderMode === 'month' && usesQuarters) {
-          setIsProcessing(false)
-          processingGuard.current = false
-          setMessage({
-            type: 'warning',
-            text: `Le dossier ${year}/ contient des sous-dossiers mensuels (01, 02...) mais le mode trimestre est actif. Changez la granularite dans les parametres ou forcez en cliquant a nouveau sur Valider.`
-          })
-          return
-        }
-        if (folderMode === 'quarter' && filingGranularity === 'month') {
-          setIsProcessing(false)
-          processingGuard.current = false
-          setMessage({
-            type: 'warning',
-            text: `Le dossier ${year}/ contient des sous-dossiers trimestriels (T1, T2...) mais le mode mensuel est actif. Changez la granularite dans les parametres ou forcez en cliquant a nouveau sur Valider.`
-          })
-          return
+        // Detect folder mode conflict (skip if user already saw the warning and clicked again)
+        const isForcing = message?.type === 'warning' && message.text.includes('Changez la granularite')
+        if (!isForcing) {
+          const folderMode = await window.api.checkFolderMode(effectiveBase, String(year))
+          const usesQuarters = filingGranularity === 'quarter' || filingGranularity === 'quarter-month'
+          if (folderMode === 'month' && usesQuarters) {
+            setIsProcessing(false)
+            processingGuard.current = false
+            setMessage({
+              type: 'warning',
+              text: `Le dossier ${year}/ contient des sous-dossiers mensuels (01, 02...) mais le mode trimestre est actif. Changez la granularite dans les parametres ou forcez en cliquant a nouveau sur Valider.`
+            })
+            return
+          }
+          if (folderMode === 'quarter' && filingGranularity === 'month') {
+            setIsProcessing(false)
+            processingGuard.current = false
+            setMessage({
+              type: 'warning',
+              text: `Le dossier ${year}/ contient des sous-dossiers trimestriels (T1, T2...) mais le mode mensuel est actif. Changez la granularite dans les parametres ou forcez en cliquant a nouveau sur Valider.`
+            })
+            return
+          }
         }
       }
 
@@ -673,10 +676,10 @@ export function ComptaForm(): React.JSX.Element {
   }, [ignoreCurrentFile, setCurrentPdfPath])
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-2 h-full">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold">Informations comptables</h2>
+          <h2 className="text-sm font-semibold">Informations comptables</h2>
           <button
             type="button"
             className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40"
@@ -750,7 +753,7 @@ export function ComptaForm(): React.JSX.Element {
       )}
 
       {/* Supplier selector with autocomplete from mappings */}
-      <div className="space-y-2 relative">
+      <div className="space-y-1 relative">
         <Label htmlFor="fixedPart">Fournisseur / tiers</Label>
         <Input
           id="fixedPart"
@@ -791,13 +794,13 @@ export function ComptaForm(): React.JSX.Element {
       </div>
 
       {/* Date picker with calendar */}
-      <div className="space-y-2">
+      <div className="space-y-1">
         <Label>Date du document</Label>
         <Popover>
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+              className="flex h-8 w-full items-center rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
             >
               <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
               {dateLabel ? (
@@ -823,12 +826,12 @@ export function ComptaForm(): React.JSX.Element {
       </div>
 
       {/* Toggle Ventilation */}
-      <div className="flex items-center justify-center py-1">
+      <div className="flex items-center justify-center py-0.5">
         <hr className="flex-1 border-border" />
         <button
           type="button"
           onClick={() => handleToggleVentilation(!ventilationEnabled)}
-          className={`mx-3 px-3 py-1 text-xs font-medium rounded-full border transition-colors cursor-pointer ${
+          className={`mx-3 px-2 py-0.5 text-xs font-medium rounded-full border transition-colors cursor-pointer ${
             ventilationEnabled
               ? 'bg-primary text-primary-foreground border-primary'
               : 'bg-muted text-muted-foreground border-border hover:bg-accent'
@@ -853,7 +856,7 @@ export function ComptaForm(): React.JSX.Element {
       ) : (
         <>
           {/* Account selector combobox */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label>Compte comptable</Label>
             <AccountCombobox
               accountNumber={currentFormData.accountNumber}
@@ -863,7 +866,7 @@ export function ComptaForm(): React.JSX.Element {
           </div>
 
           {/* Amount */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="amount">Montant TTC</Label>
             <Input
               id="amount"
@@ -876,7 +879,7 @@ export function ComptaForm(): React.JSX.Element {
       )}
 
       {/* Adjustable part */}
-      <div className="space-y-2">
+      <div className="space-y-1">
         <Label htmlFor="adjustablePart">Partie ajustable (n° de facture, mois...)</Label>
         <Input
           id="adjustablePart"
@@ -898,7 +901,7 @@ export function ComptaForm(): React.JSX.Element {
       </div>
 
       {/* Payment date picker */}
-      <div className="space-y-2">
+      <div className="space-y-1">
         <Label>
           Date de paiement
           {usePaymentDateFiling && (
@@ -909,7 +912,7 @@ export function ComptaForm(): React.JSX.Element {
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+              className="flex h-8 w-full items-center rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
             >
               <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
               {paymentDateLabel ? (
@@ -935,7 +938,7 @@ export function ComptaForm(): React.JSX.Element {
       </div>
 
       {/* Payment mode + Paid stamp */}
-      <div className="space-y-2">
+      <div className="space-y-1">
         <Label>{"Pay\u00e9 (tampon bleu optionnel)"}</Label>
         <div className="flex gap-2">
           <Select
@@ -967,7 +970,7 @@ export function ComptaForm(): React.JSX.Element {
       {/* Path preview - clickable to change destination */}
       {pathPreview && (
         <div
-          className="rounded-md border border-border bg-muted/50 p-3 space-y-1 cursor-pointer hover:bg-muted/80 transition-colors"
+          className="rounded-md border border-border bg-muted/50 px-3 py-1.5 space-y-0.5 cursor-pointer hover:bg-muted/80 transition-colors"
           onClick={async () => {
             const folder = await window.api.selectDestinationFolder()
             if (folder) {
@@ -999,11 +1002,11 @@ export function ComptaForm(): React.JSX.Element {
       )}
 
       {/* Validate button */}
-      <Button className="w-full" disabled={!canValidate} onClick={handleValidate}>
+      <Button className="w-full h-8 text-sm" disabled={!canValidate} onClick={handleValidate}>
         {isProcessing ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            Traitement en cours...
+            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+            Traitement...
           </>
         ) : (
           'Valider et classer'
@@ -1013,7 +1016,7 @@ export function ComptaForm(): React.JSX.Element {
       {/* Ignore button */}
       <Button
         variant="outline"
-        className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 hover:border-destructive"
+        className="w-full h-8 text-sm border-destructive/50 text-destructive hover:bg-destructive/10 hover:border-destructive"
         onClick={handleIgnore}
         disabled={!currentPdfPath || isProcessing}
       >

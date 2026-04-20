@@ -25,7 +25,7 @@ export function Layout({ onOpenSettings }: LayoutProps): React.JSX.Element {
         </Panel>
         <PanelResizeHandle className="w-1.5 bg-border/40 hover:bg-primary/60 transition-colors duration-150" />
         <Panel defaultSize={34} minSize={28} maxSize={45}>
-          <div className="h-full p-4 overflow-auto">
+          <div className="h-full px-3 py-2 overflow-hidden flex flex-col">
             <ComptaForm />
           </div>
         </Panel>

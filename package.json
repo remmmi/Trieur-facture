@@ -1,6 +1,6 @@
 {
   "name": "trieur-facture",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Application de tri, tamponnage et classement de factures",
   "main": "./out/main/index.js",
   "author": "example.com",
