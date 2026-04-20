@@ -85,7 +85,7 @@ export function AccountCombobox({
     <div className="relative" ref={containerRef}>
       <button
         type="button"
-        className="flex items-center justify-between w-full rounded-md border border-input bg-background px-3 py-2 text-sm cursor-pointer hover:bg-accent/50 transition-colors"
+        className="flex items-center justify-between w-full h-8 rounded-md border border-input bg-background px-3 py-1 text-sm cursor-pointer hover:bg-accent/50 transition-colors"
         onClick={handleOpen}
       >
         {accountNumber ? (

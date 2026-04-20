@@ -62,6 +62,49 @@ interface StampParams {
   paid?: string
 }
 
+// Helper: draw a rectangle rotated around its center (pdf-lib rotates around bottom-left)
+function drawRotatedRect(
+  page: PDFPage,
+  cx: number, cy: number,
+  w: number, h: number,
+  rad: number,
+  fillColor: ReturnType<typeof rgb>,
+  fillOpacity: number,
+  borderColor: ReturnType<typeof rgb>,
+  borderWidth: number
+): void {
+  const rot = degrees(rad * 180 / Math.PI)
+  // Compute bottom-left position so that rotation around it places the box centered at (cx, cy)
+  const rx = cx + (-w / 2) * Math.cos(rad) - (-h / 2) * Math.sin(rad)
+  const ry = cy + (-w / 2) * Math.sin(rad) + (-h / 2) * Math.cos(rad)
+  page.drawRectangle({
+    x: rx, y: ry, width: w, height: h,
+    color: fillColor, opacity: fillOpacity,
+    borderColor, borderWidth,
+    rotate: rot
+  })
+}
+
+// Helper: draw text rotated around a box center, positioned at (padding, padding) from bottom-left
+function drawRotatedText(
+  page: PDFPage,
+  cx: number, cy: number,
+  w: number, h: number,
+  padding: number,
+  rad: number,
+  textStr: string,
+  fontSize: number,
+  font: PDFFont,
+  color: ReturnType<typeof rgb>
+): void {
+  const rot = degrees(rad * 180 / Math.PI)
+  const localTx = padding - w / 2
+  const localTy = padding - h / 2
+  const tx = cx + localTx * Math.cos(rad) - localTy * Math.sin(rad)
+  const ty = cy + localTx * Math.sin(rad) + localTy * Math.cos(rad)
+  page.drawText(textStr, { x: tx, y: ty, size: fontSize, font, color, rotate: rot })
+}
+
 function stampSingle(params: StampParams): void {
   const { page, font, text, stampX, stampY, stampRotation, pageWidth, pageHeight, paid } = params
 
@@ -74,38 +117,15 @@ function stampSingle(params: StampParams): void {
   const x = Math.max(0, Math.min(stampX * pageWidth, pageWidth - boxW))
   const y = Math.max(0, Math.min(pageHeight - stampY * pageHeight - boxH, pageHeight - boxH))
 
-  const rot = degrees(-stampRotation)
+  const rad = (-stampRotation * Math.PI) / 180
   const centerX = x + boxW / 2
   const centerY = y + boxH / 2
-  const rad = (-stampRotation * Math.PI) / 180
 
-  page.drawRectangle({
-    x,
-    y,
-    width: boxW,
-    height: boxH,
-    color: rgb(1, 1, 1),
-    opacity: 0.9,
-    borderColor: rgb(0.6, 0.6, 0.6),
-    borderWidth: 0.5,
-    rotate: rot
-  })
+  drawRotatedRect(page, centerX, centerY, boxW, boxH, rad,
+    rgb(1, 1, 1), 0.9, rgb(0.6, 0.6, 0.6), 0.5)
 
-  // pdf-lib drawText rotates around (x, y), so compute text position
-  // relative to the stamp center then rotate
-  const localTx = padding - boxW / 2
-  const localTy = padding - boxH / 2
-  const textX = centerX + localTx * Math.cos(rad) - localTy * Math.sin(rad)
-  const textY = centerY + localTx * Math.sin(rad) + localTy * Math.cos(rad)
-
-  page.drawText(text, {
-    x: textX,
-    y: textY,
-    size: fontSize,
-    font,
-    color: rgb(0.8, 0, 0),
-    rotate: rot
-  })
+  drawRotatedText(page, centerX, centerY, boxW, boxH, padding, rad,
+    text, fontSize, font, rgb(0.8, 0, 0))
 
   if (paid) {
     const paidText = `Paye : ${paid}`
@@ -113,37 +133,15 @@ function stampSingle(params: StampParams): void {
     const paidBoxW = paidTextWidth + padding * 2
     const paidBoxH = fontSize + padding * 2
 
-    // Position juste en dessous du tampon rouge (Y decroissant en PDF)
-    const paidY = y - paidBoxH
-    const paidX = x
+    // Center of blue stamp: same x center, just below the red stamp
+    const paidCenterX = x + paidBoxW / 2
+    const paidCenterY = (y - paidBoxH) + paidBoxH / 2
 
-    page.drawRectangle({
-      x: paidX,
-      y: paidY,
-      width: paidBoxW,
-      height: paidBoxH,
-      color: rgb(1, 1, 1),
-      opacity: 0.9,
-      borderColor: rgb(0.4, 0.4, 0.8),
-      borderWidth: 0.5,
-      rotate: rot
-    })
+    drawRotatedRect(page, paidCenterX, paidCenterY, paidBoxW, paidBoxH, rad,
+      rgb(1, 1, 1), 0.9, rgb(0.4, 0.4, 0.8), 0.5)
 
-    const paidLocalTx = padding - paidBoxW / 2
-    const paidLocalTy = padding - paidBoxH / 2
-    const paidCenterX = paidX + paidBoxW / 2
-    const paidCenterY = paidY + paidBoxH / 2
-    const paidTextX = paidCenterX + paidLocalTx * Math.cos(rad) - paidLocalTy * Math.sin(rad)
-    const paidTextY = paidCenterY + paidLocalTx * Math.sin(rad) + paidLocalTy * Math.cos(rad)
-
-    page.drawText(paidText, {
-      x: paidTextX,
-      y: paidTextY,
-      size: fontSize,
-      font,
-      color: rgb(0, 0, 0.8),
-      rotate: rot
-    })
+    drawRotatedText(page, paidCenterX, paidCenterY, paidBoxW, paidBoxH, padding, rad,
+      paidText, fontSize, font, rgb(0, 0, 0.8))
   }
 }
 
