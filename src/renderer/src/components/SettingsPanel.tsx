@@ -50,6 +50,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
   const [largeFileThreshold, setLargeFileThreshold] = useState(8)
   const [paymentModes, setPaymentModes] = useState('CB|Virement|Prelevement')
   const [usePaymentDateFiling, setUsePaymentDateFiling] = useState(false)
+  const [aiModel, setAiModel] = useState<'sonnet' | 'opus'>('sonnet')
   const [mappings, setMappings] = useState<SupplierMapping[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<SupplierMapping>({
@@ -66,6 +67,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
   } | null>(null)
   const csvFileInputRef = useRef<HTMLInputElement>(null)
 
+  const maskApiKey = (key: string): string => {
+    if (!key) return ''
+    const prefix = key.startsWith('sk-ant-') ? 'sk-ant-' : ''
+    const variable = key.slice(prefix.length)
+    if (variable.length <= 12) return key
+    return `${prefix}${variable.slice(0, 6)}...${variable.slice(-6)}`
+  }
+
   const loadData = useCallback(async () => {
     const [key, supplierMappings] = await Promise.all([
       window.api.getApiKey(),
@@ -80,6 +89,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     window.api.getLargeFileThreshold().then(setLargeFileThreshold)
     window.api.getPaymentModes().then(setPaymentModes)
     window.api.getUsePaymentDateFiling().then(setUsePaymentDateFiling)
+    window.api.getAiModel().then(setAiModel)
   }, [])
 
   useEffect(() => {
@@ -284,12 +294,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
                 <h2 className="text-base font-semibold">Clé API Anthropic (Claude)</h2>
               </div>
               <p className="text-sm text-muted-foreground">
-                Nécessaire pour l'extraction automatique des données de facture via Claude Sonnet 4.
+                Nécessaire pour l'extraction automatique des données de facture.
               </p>
               <div className="flex gap-2">
                 <Input
                   type="password"
-                  placeholder={apiKeyDisplay || 'sk-ant-...'}
+                  placeholder={apiKeyDisplay ? 'Saisir une nouvelle clé pour remplacer' : 'sk-ant-...'}
                   value={apiKey}
                   onChange={(e) => {
                     setApiKey(e.target.value)
@@ -320,9 +330,32 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
               )}
               {apiKeyDisplay && !apiKeyStatus && (
                 <p className="text-xs text-muted-foreground font-mono">
-                  Cle actuelle : {apiKeyDisplay}
+                  Clé actuelle : {maskApiKey(apiKeyDisplay)}
                 </p>
               )}
+            </section>
+
+            {/* Modèle IA */}
+            <section className="space-y-3">
+              <h2 className="text-base font-semibold">Modèle IA</h2>
+              <p className="text-sm text-muted-foreground">
+                Par défaut, l'extraction utilise Claude Sonnet 4.6 (rapide, économique). Active l'option ci-dessous pour les tickets de caisse difficiles ou les scans flous.
+              </p>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={aiModel === 'opus'}
+                  onChange={async (e) => {
+                    const next = e.target.checked ? 'opus' : 'sonnet'
+                    setAiModel(next)
+                    await window.api.setAiModel(next)
+                  }}
+                  className="h-4 w-4 mt-0.5 rounded border-input accent-primary"
+                />
+                <span className="text-sm">
+                  Forcer le mode Opus (meilleure vision mais 5x plus cher)
+                </span>
+              </label>
             </section>
 
             {/* Filename options */}

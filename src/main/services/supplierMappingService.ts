@@ -33,7 +33,13 @@ export interface AppConfig {
   largeFilePageThreshold: number
   paymentModes: string
   usePaymentDateFiling: boolean
+  aiModel: 'sonnet' | 'opus'
 }
+
+export const AI_MODEL_IDS = {
+  sonnet: 'claude-sonnet-4-6',
+  opus: 'claude-opus-4-7'
+} as const
 
 const DEFAULT_CONFIG: AppConfig = {
   anthropicApiKey: '',
@@ -48,7 +54,8 @@ const DEFAULT_CONFIG: AppConfig = {
   prefixAccountInFilename: false,
   largeFilePageThreshold: 8,
   paymentModes: 'CB|Virement|Prelevement',
-  usePaymentDateFiling: false
+  usePaymentDateFiling: false,
+  aiModel: 'sonnet'
 }
 
 function getConfigPath(): string {
@@ -382,5 +389,16 @@ export async function getUsePaymentDateFiling(): Promise<boolean> {
 export async function setUsePaymentDateFiling(value: boolean): Promise<void> {
   const config = await loadConfig()
   config.usePaymentDateFiling = value
+  await saveConfig(config)
+}
+
+export async function getAiModel(): Promise<'sonnet' | 'opus'> {
+  const config = await loadConfig()
+  return config.aiModel ?? 'sonnet'
+}
+
+export async function setAiModel(value: 'sonnet' | 'opus'): Promise<void> {
+  const config = await loadConfig()
+  config.aiModel = value
   await saveConfig(config)
 }

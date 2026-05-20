@@ -124,7 +124,7 @@ export function AccountCombobox({
               <>
                 <button
                   type="button"
-                  className="p-1 rounded hover:bg-accent text-success cursor-pointer"
+                  className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-input bg-card text-success hover:bg-muted transition-colors cursor-pointer"
                   onClick={handleStartAdding}
                   title="Ajouter ce compte"
                 >
@@ -132,7 +132,7 @@ export function AccountCombobox({
                 </button>
                 <button
                   type="button"
-                  className="p-1 rounded hover:bg-accent text-destructive cursor-pointer"
+                  className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-input bg-card text-destructive hover:bg-muted transition-colors cursor-pointer"
                   onClick={handleClearQuery}
                   title="Effacer"
                 >
@@ -150,7 +150,7 @@ export function AccountCombobox({
               <div className="flex gap-2">
                 <input
                   ref={libelleRef}
-                  className="flex-1 bg-background rounded-md border border-input px-2 py-1 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+                  className="flex-1 bg-card rounded-md border border-input px-2 py-1 text-sm outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
                   placeholder="Libelle du compte..."
                   value={newLibelle}
                   onChange={(e) => setNewLibelle(e.target.value)}
@@ -161,7 +161,7 @@ export function AccountCombobox({
                 />
                 <button
                   type="button"
-                  className="p-1.5 rounded hover:bg-accent text-success cursor-pointer disabled:opacity-40"
+                  className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-input bg-card text-success hover:bg-muted transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   onClick={handleConfirmAdd}
                   disabled={!newLibelle.trim()}
                   title="Confirmer"
@@ -170,7 +170,7 @@ export function AccountCombobox({
                 </button>
                 <button
                   type="button"
-                  className="p-1.5 rounded hover:bg-accent text-destructive cursor-pointer"
+                  className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-input bg-card text-destructive hover:bg-muted transition-colors cursor-pointer"
                   onClick={() => setAddingLibelle(false)}
                   title="Annuler"
                 >

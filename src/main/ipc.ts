@@ -43,6 +43,8 @@ import {
   setPaymentModes,
   getUsePaymentDateFiling,
   setUsePaymentDateFiling,
+  getAiModel,
+  setAiModel,
   importPlanComptable,
   getPlanComptable,
   resetPlanComptable,
@@ -88,11 +90,11 @@ export async function registerIpcHandlers(): Promise<void> {
   })
 
   // --- AI OCR ---
-  ipcMain.handle('ai-pre-process', async (_event, pdfPath: string) => {
+  ipcMain.handle('ai-pre-process', async (_event, pdfPath: string, forceOpus = false) => {
     if (!isAiConfigured()) return null
 
     // Extract data from PDF via Claude
-    const aiResult = await extractInvoiceData(pdfPath)
+    const aiResult = await extractInvoiceData(pdfPath, forceOpus)
     if (!aiResult) return null
 
     // Look up supplier mapping
@@ -104,6 +106,13 @@ export async function registerIpcHandlers(): Promise<void> {
         aiResult.accountNumber = mapping.defaultAccount
         aiResult.accountLabel = mapping.defaultAccountLabel
       }
+    }
+
+    // Fallback : si ni l'IA ni un mapping fournisseur n'ont fourni un compte,
+    // bascule en 000000 Documents divers pour que l'user puisse valider direct
+    if (!aiResult.accountNumber) {
+      aiResult.accountNumber = '000000'
+      aiResult.accountLabel = 'Documents divers'
     }
 
     return aiResult
@@ -245,6 +254,12 @@ export async function registerIpcHandlers(): Promise<void> {
   ipcMain.handle('get-use-payment-date-filing', async () => getUsePaymentDateFiling())
   ipcMain.handle('set-use-payment-date-filing', async (_event, value: boolean) => {
     await setUsePaymentDateFiling(value)
+    return true
+  })
+
+  ipcMain.handle('get-ai-model', async () => getAiModel())
+  ipcMain.handle('set-ai-model', async (_event, value: 'sonnet' | 'opus') => {
+    await setAiModel(value)
     return true
   })
   ipcMain.handle('get-page-count', async (_event, filePath: string) => {

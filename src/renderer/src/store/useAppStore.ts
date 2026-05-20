@@ -63,6 +63,8 @@ interface AppState {
   setIsProcessing: (value: boolean) => void
   aiProcessing: boolean
   setAiProcessing: (value: boolean) => void
+  lastAiModel: 'sonnet' | 'opus' | null
+  setLastAiModel: (value: 'sonnet' | 'opus' | null) => void
 
   // Stamp position (ratio 0-1 relative to page size) and rotation (degrees)
   stampX: number
@@ -106,6 +108,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentIndex: index,
         currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) },
         aiExtractedSupplier: null,
+        lastAiModel: null,
         ventilationEnabled: false,
         ventilationLines: []
       })
@@ -118,6 +121,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentIndex: currentIndex + 1,
         currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) },
         aiExtractedSupplier: null,
+        lastAiModel: null,
         ventilationEnabled: false,
         ventilationLines: []
       })
@@ -130,6 +134,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentIndex: currentIndex - 1,
         currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) },
         aiExtractedSupplier: null,
+        lastAiModel: null,
         ventilationEnabled: false,
         ventilationLines: []
       })
@@ -151,6 +156,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) },
       aiExtractedSupplier: null,
+      lastAiModel: null,
       ventilationEnabled: false,
       ventilationLines: []
     }),
@@ -166,6 +172,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   aiProcessing: false,
   setAiProcessing: (value) => set({ aiProcessing: value }),
+  lastAiModel: null,
+  setLastAiModel: (value) => set({ lastAiModel: value }),
 
   stampX: 0.35,
   stampY: 0.05,
@@ -198,6 +206,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentIndex: newIndex,
       currentFormData: { ...defaultFormData, date: new Date().toISOString().slice(0, 10) },
       aiExtractedSupplier: null,
+      lastAiModel: null,
       ventilationEnabled: false,
       ventilationLines: []
     })

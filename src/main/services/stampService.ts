@@ -364,6 +364,7 @@ export interface AiSuggestion {
   amountType?: 'ht' | 'ttc'
   confidence?: number
   rawText?: string
+  modelUsed?: 'sonnet' | 'opus'
 }
 
 export type AiPreProcessHook = (pdfPath: string) => Promise<AiSuggestion | null>

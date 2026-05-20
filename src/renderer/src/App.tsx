@@ -4,6 +4,7 @@ import { loadPlanComptable } from '@/data/planComptable'
 import { WelcomeScreen } from '@/components/WelcomeScreen'
 import { Layout } from '@/components/Layout'
 import { SettingsPanel } from '@/components/SettingsPanel'
+import { DebugPanel } from '@/components/DebugPanel'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, CheckCircle, Sparkles } from 'lucide-react'
 import { parseIsoDate } from '@/lib/sanitize'
@@ -20,7 +21,8 @@ function App(): React.JSX.Element {
     try {
       const suggestion = await window.api.aiPreProcess(pdfPath)
       if (suggestion) {
-        const { setFormData, setAiExtractedSupplier } = useAppStore.getState()
+        const { setFormData, setAiExtractedSupplier, setLastAiModel } = useAppStore.getState()
+        if (suggestion.modelUsed) setLastAiModel(suggestion.modelUsed)
         setFormData({
           ...(suggestion.accountNumber && { accountNumber: suggestion.accountNumber }),
           ...(suggestion.accountLabel && { accountLabel: suggestion.accountLabel }),
@@ -151,6 +153,7 @@ function App(): React.JSX.Element {
   return (
     <>
       <Layout onOpenSettings={() => setShowSettings(true)} />
+      {import.meta.env.DEV && <DebugPanel />}
       {showLargeFileModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="max-w-sm w-full mx-4 rounded-lg border border-border bg-card p-6 space-y-4">

@@ -1,9 +1,16 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { readFile } from 'fs/promises'
 import type { AiSuggestion } from './stampService'
+import { AI_MODEL_IDS, getAiModel } from './supplierMappingService'
 
 let client: Anthropic | null = null
 let currentAbortController: AbortController | null = null
+
+async function resolveModel(forceOpus = false): Promise<string> {
+  if (forceOpus) return AI_MODEL_IDS.opus
+  const choice = await getAiModel()
+  return AI_MODEL_IDS[choice]
+}
 
 export function initializeAiService(apiKey: string): void {
   client = new Anthropic({ apiKey })
@@ -56,7 +63,7 @@ export async function validateApiKey(apiKey: string): Promise<{ valid: boolean; 
   try {
     const testClient = new Anthropic({ apiKey })
     await testClient.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: await resolveModel(),
       max_tokens: 1,
       messages: [{ role: 'user', content: 'ok' }]
     })
@@ -81,7 +88,10 @@ export async function validateApiKey(apiKey: string): Promise<{ valid: boolean; 
   }
 }
 
-export async function extractInvoiceData(pdfPath: string): Promise<AiSuggestion | null> {
+export async function extractInvoiceData(
+  pdfPath: string,
+  forceOpus = false
+): Promise<AiSuggestion | null> {
   if (!client) return null
 
   try {
@@ -90,10 +100,13 @@ export async function extractInvoiceData(pdfPath: string): Promise<AiSuggestion 
     const pdfBuffer = await readFile(pdfPath)
     const base64 = pdfBuffer.toString('base64')
 
+    const modelId = await resolveModel(forceOpus)
+    const modelUsed: 'sonnet' | 'opus' = modelId === AI_MODEL_IDS.opus ? 'opus' : 'sonnet'
+
     const response = await client.messages.create(
       {
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
+        model: modelId,
+        max_tokens: 2048,
         messages: [
           {
             role: 'user',
@@ -131,7 +144,8 @@ export async function extractInvoiceData(pdfPath: string): Promise<AiSuggestion 
       adjustablePart: parsed.suggestedAccount === '000000' ? 'documents-divers' : (parsed.invoiceNumber || undefined),
       amount: parsed.totalTTC || parsed.totalHT || undefined,
       amountType: parsed.amountIsTTC === false ? 'ht' : 'ttc',
-      rawText: textBlock.text
+      rawText: textBlock.text,
+      modelUsed
     }
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') {

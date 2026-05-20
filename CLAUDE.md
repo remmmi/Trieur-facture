@@ -4,8 +4,8 @@
 Application desktop Electron pour trier, tamponner (numero comptable) et classer des factures PDF/DOC/DOCX.
 
 **Repo** : https://github.com/remmmi/Trieur-facture branche main
-**Version** : 1.0.3
-**Derniere release** : https://github.com/remmmi/Trieur-facture/releases/tag/v1.0.3
+**Version** : 1.2.0
+**Derniere release** : https://github.com/remmmi/Trieur-facture/releases/tag/v1.2.0
 
 ## Plateformes
 - **Developpement/test** : Debian (Linux)
@@ -203,9 +203,26 @@ Trois sub-agents specialises dans `.claude/agents/` :
 - L'utilisateur dit "app" pour lancer `npm run dev` en background
 - L'utilisateur dit "reboot" ou "restart" pour kill + relance
 - Les modifs du main process necessitent un reboot (pas de HMR, seulement le renderer)
-- Screenshots via chemin fichier ou CDP (remote debugging port 9222 + build production)
 - Validation manuelle dans l'app, pas de tests unitaires
 - L'utilisateur prefere les composants UI standard web (combobox/select plutot qu'input brut)
+
+## Debug runtime (a utiliser systematiquement quand un bug depend de l'etat)
+Le mode dev expose 4 hooks pour inspecter l'app en direct :
+
+**1. CDP / chrome-devtools MCP** : `npm run dev` lance Electron avec `--remote-debugging-port=9222`. Connecter le MCP `chrome-devtools` (deja dispo) puis :
+- `mcp__chrome-devtools__list_pages` puis `select_page` sur la window Electron
+- `take_screenshot` pour voir le rendu actuel
+- `list_console_messages` pour les erreurs renderer
+- `evaluate_script` pour lire le state runtime : `() => window.__store.getState()`
+- `list_network_requests` pour voir les appels API/IPC
+
+**2. Store Zustand expose sur `window`** : en dev seulement, `window.__store` pointe sur `useAppStore`. Acces complet via CDP `evaluate_script`. Helper : `window.__debug()` retourne `{state, api: [liste des window.api.*]}`.
+
+**3. DebugPanel UI** : drawer interne (composant `src/renderer/src/components/DebugPanel.tsx`) toggle `Ctrl+Shift+D`. Affiche le state Zustand serialise + bouton "Copy" pour coller dans le chat. Utile quand pas de CDP.
+
+**4. Logs main process** : en dev, `console.log/warn/error/info` du main process sont mirroires dans `/tmp/trieur-facture/main.log`. `tail -f` ou `Read` direct.
+
+Reflexe : avant de deviner un bug d'etat, lire le state via CDP ou demander un Ctrl+Shift+D + Copy.
 
 ## Points d'attention
 - pdfjs-dist doit rester en v4.x (v5 incompatible Electron 39)

@@ -39,6 +39,8 @@ export function ComptaForm(): React.JSX.Element {
     aiExtractedSupplier,
     aiProcessing,
     setAiProcessing,
+    lastAiModel,
+    setLastAiModel,
     setVentilationEnabled: setStoreVentilation,
     setVentilationLines,
     ignoreCurrentFile
@@ -166,10 +168,11 @@ export function ComptaForm(): React.JSX.Element {
     return undefined
   }, [message])
 
-  // Sync supplierQuery when form fixedPart changes externally (e.g. from AI)
+  // Sync supplierQuery with form fixedPart (covers AI extraction AND file change reset)
   useEffect(() => {
-    if (currentFormData.fixedPart && supplierQuery !== currentFormData.fixedPart) {
-      setSupplierQuery(currentFormData.fixedPart)
+    const next = currentFormData.fixedPart ?? ''
+    if (supplierQuery !== next) {
+      setSupplierQuery(next)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFormData.fixedPart])
@@ -335,6 +338,21 @@ export function ComptaForm(): React.JSX.Element {
     destinationFolder &&
     !isProcessing &&
     (ventilationEnabled ? splitLinesValid && splitBalanced : !!currentFormData.accountNumber)
+
+  const missingFields: string[] = []
+  if (!filingDate) missingFields.push(usePaymentDateFiling ? 'date de paiement ou d\'emission' : 'date')
+  if (!currentFormData.fixedPart) missingFields.push('fournisseur')
+  if (!currentPdfPath) missingFields.push('document PDF')
+  if (!destinationFolder) missingFields.push('dossier destination')
+  if (ventilationEnabled) {
+    if (!splitLinesValid) missingFields.push('lignes de ventilation completes')
+    else if (!splitBalanced) missingFields.push('total ventilation = montant total')
+  } else if (!currentFormData.accountNumber) {
+    missingFields.push('compte comptable')
+  }
+  const validateTitle = canValidate
+    ? 'Valider et classer le document'
+    : `Manquant : ${missingFields.join(', ')}`
 
   // --- Toggle ventilation ---
   const handleToggleVentilation = useCallback((enabled: boolean) => {
@@ -607,8 +625,9 @@ export function ComptaForm(): React.JSX.Element {
     if (!currentPdfPath || aiProcessing) return
     setAiProcessing(true)
     try {
-      const suggestion = await window.api.aiPreProcess(currentPdfPath)
+      const suggestion = await window.api.aiPreProcess(currentPdfPath, true)
       if (suggestion) {
+        if (suggestion.modelUsed) setLastAiModel(suggestion.modelUsed)
         lastAiSuggestionRef.current = {
           accountNumber: suggestion.accountNumber || '',
           accountLabel: suggestion.accountLabel || '',
@@ -656,7 +675,7 @@ export function ComptaForm(): React.JSX.Element {
     } finally {
       setAiProcessing(false)
     }
-  }, [currentPdfPath, aiProcessing, setAiProcessing, setFormData])
+  }, [currentPdfPath, aiProcessing, setAiProcessing, setFormData, setLastAiModel])
 
   const handleIgnore = useCallback(async () => {
     ignoreCurrentFile()
@@ -680,15 +699,26 @@ export function ComptaForm(): React.JSX.Element {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">Informations comptables</h2>
-          <button
+          <Button
             type="button"
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-40"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 gap-1.5 text-xs"
             onClick={handleAiReread}
             disabled={aiProcessing || !currentPdfPath}
-            title="Relecture IA"
+            title="Relecture IA (mode Opus, vision HD)"
           >
-            <Sparkles className={`h-4 w-4 ${aiProcessing ? 'ai-pulse' : 'text-fuchsia-500'}`} />
-          </button>
+            <Sparkles
+              className={`h-3.5 w-3.5 ${
+                aiProcessing
+                  ? 'ai-pulse'
+                  : lastAiModel === 'opus'
+                    ? 'text-violet-400'
+                    : 'text-fuchsia-500'
+              }`}
+            />
+            <span>Relecture IA</span>
+          </Button>
           {aiProcessing && (
             <button
               type="button"
@@ -1002,16 +1032,28 @@ export function ComptaForm(): React.JSX.Element {
       )}
 
       {/* Validate button */}
-      <Button className="w-full h-8 text-sm" disabled={!canValidate} onClick={handleValidate}>
-        {isProcessing ? (
-          <>
-            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-            Traitement...
-          </>
-        ) : (
-          'Valider et classer'
+      <div className="space-y-1">
+        <Button
+          className="w-full h-8 text-sm"
+          disabled={!canValidate}
+          onClick={handleValidate}
+          title={validateTitle}
+        >
+          {isProcessing ? (
+            <>
+              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+              Traitement...
+            </>
+          ) : (
+            'Valider et classer'
+          )}
+        </Button>
+        {!canValidate && !isProcessing && missingFields.length > 0 && (
+          <p className="text-xs text-muted-foreground text-center">
+            Manquant : {missingFields.join(', ')}
+          </p>
         )}
-      </Button>
+      </div>
 
       {/* Ignore button */}
       <Button

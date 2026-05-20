@@ -48,6 +48,7 @@ export interface AiSuggestion {
   amountType?: 'ht' | 'ttc'
   confidence?: number
   rawText?: string
+  modelUsed?: 'sonnet' | 'opus'
 }
 
 export interface SupplierMapping {
@@ -69,7 +70,7 @@ export interface Api {
   processDocument: (data: ProcessData) => Promise<ProcessResult>
 
   // AI OCR
-  aiPreProcess: (pdfPath: string) => Promise<AiSuggestion | null>
+  aiPreProcess: (pdfPath: string, forceOpus?: boolean) => Promise<AiSuggestion | null>
   aiAbort: () => Promise<boolean>
 
   // Settings
@@ -107,6 +108,8 @@ export interface Api {
   setPaymentModes: (value: string) => Promise<boolean>
   getUsePaymentDateFiling: () => Promise<boolean>
   setUsePaymentDateFiling: (value: boolean) => Promise<boolean>
+  getAiModel: () => Promise<'sonnet' | 'opus'>
+  setAiModel: (value: 'sonnet' | 'opus') => Promise<boolean>
   getPageCount: (filePath: string) => Promise<number>
   checkFolderMode: (basePath: string, year: string) => Promise<'month' | 'quarter' | 'unknown'>
 

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { ThemeToggle } from '@/components/ThemeToggle'
-import { FolderOpen, FolderOutput, Settings, Copy, Check } from 'lucide-react'
+import { FolderOpen, FolderOutput, Settings, Copy, Check, FolderSearch } from 'lucide-react'
 
 function CopyButton({ text }: { text: string }): React.JSX.Element {
   const [copied, setCopied] = useState(false)
@@ -40,6 +41,43 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
   } = useAppStore()
 
   const [filingGranularity, setFilingGranularity] = useState<'month' | 'quarter' | 'quarter-month'>('month')
+  const [sourceDraft, setSourceDraft] = useState('')
+  const [destDraft, setDestDraft] = useState('')
+  const [sourceError, setSourceError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setSourceDraft(sourceFolder ?? '')
+  }, [sourceFolder])
+
+  useEffect(() => {
+    setDestDraft(destinationFolder ?? '')
+  }, [destinationFolder])
+
+  const commitSource = async (path: string): Promise<void> => {
+    const trimmed = path.trim()
+    if (!trimmed || trimmed === sourceFolder) {
+      setSourceError(null)
+      return
+    }
+    try {
+      const files = await window.api.scanFolder(trimmed)
+      setSourceFolder(trimmed)
+      setFileQueue(files)
+      const { destinationFolder: dest } = useAppStore.getState()
+      await window.api.setLastFolders(trimmed, dest)
+      setSourceError(null)
+    } catch {
+      setSourceError('Dossier introuvable ou inaccessible')
+    }
+  }
+
+  const commitDestination = async (path: string): Promise<void> => {
+    const trimmed = path.trim()
+    if (!trimmed || trimmed === destinationFolder) return
+    setDestinationFolder(trimmed)
+    const { sourceFolder: src } = useAppStore.getState()
+    await window.api.setLastFolders(src, trimmed)
+  }
 
   // Load persisted settings on mount
   useEffect(() => {
@@ -119,41 +157,75 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2"
-              onClick={handleSelectSource}
-            >
-              <FolderOpen className="h-4 w-4 shrink-0" />
-              {sourceFolder ? (
-                <span className="truncate">{sourceFolder}</span>
-              ) : (
-                'Dossier source (factures)'
-              )}
-            </Button>
-            {sourceFolder && (
+            <label className="text-xs text-muted-foreground pl-1">Dossier source (factures)</label>
+            <div className="flex items-center gap-1.5">
+              <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Input
+                value={sourceDraft}
+                onChange={(e) => setSourceDraft(e.target.value)}
+                onBlur={() => commitSource(sourceDraft)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    ;(e.target as HTMLInputElement).blur()
+                  }
+                }}
+                placeholder="/chemin/vers/le/dossier"
+                className="flex-1 font-mono text-xs"
+                spellCheck={false}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={handleSelectSource}
+                title="Parcourir"
+              >
+                <FolderSearch className="h-4 w-4" />
+              </Button>
+            </div>
+            {sourceError ? (
+              <p className="text-xs text-destructive pl-1">{sourceError}</p>
+            ) : sourceFolder ? (
               <div className="flex items-center gap-1">
                 <p className="text-xs text-muted-foreground pl-1 flex-1">
                   {fileQueue.length} fichier(s) trouve(s)
                 </p>
                 <CopyButton text={sourceFolder} />
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="space-y-2">
-            <Button
-              variant="outline"
-              className="w-full justify-start gap-2"
-              onClick={handleSelectDestination}
-            >
-              <FolderOutput className="h-4 w-4 shrink-0" />
-              {destinationFolder ? (
-                <span className="truncate">{destinationFolder}</span>
-              ) : (
-                'Dossier destination (comptabilité)'
-              )}
-            </Button>
+            <label className="text-xs text-muted-foreground pl-1">Dossier destination (comptabilité)</label>
+            <div className="flex items-center gap-1.5">
+              <FolderOutput className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Input
+                value={destDraft}
+                onChange={(e) => setDestDraft(e.target.value)}
+                onBlur={() => commitDestination(destDraft)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    ;(e.target as HTMLInputElement).blur()
+                  }
+                }}
+                placeholder="/chemin/vers/le/dossier"
+                className="flex-1 font-mono text-xs"
+                spellCheck={false}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={handleSelectDestination}
+                title="Parcourir"
+              >
+                <FolderSearch className="h-4 w-4" />
+              </Button>
+            </div>
             {destinationFolder && (
               <div className="flex justify-end">
                 <CopyButton text={destinationFolder} />

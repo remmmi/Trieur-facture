@@ -1,8 +1,39 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
+import { createWriteStream, mkdirSync } from 'fs'
+import { tmpdir } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerIpcHandlers } from './ipc'
+
+// --- Dev only : CDP + structured logging ---
+if (is.dev) {
+  // Remote debugging endpoint at http://localhost:9222 (used by chrome-devtools MCP)
+  app.commandLine.appendSwitch('remote-debugging-port', '9222')
+
+  // Mirror console output to /tmp/trieur-dev.log for tail -f and tooling
+  const logDir = join(tmpdir(), 'trieur-facture')
+  try {
+    mkdirSync(logDir, { recursive: true })
+  } catch {
+    // ignore
+  }
+  const logStream = createWriteStream(join(logDir, 'main.log'), { flags: 'a' })
+  const stamp = (): string => new Date().toISOString()
+  const wrap = (orig: (...args: unknown[]) => void, level: string) => {
+    return (...args: unknown[]): void => {
+      const line = `[${stamp()}] [${level}] ${args
+        .map((a) => (typeof a === 'string' ? a : JSON.stringify(a)))
+        .join(' ')}\n`
+      logStream.write(line)
+      orig(...args)
+    }
+  }
+  console.log = wrap(console.log, 'LOG')
+  console.warn = wrap(console.warn, 'WARN')
+  console.error = wrap(console.error, 'ERROR')
+  console.info = wrap(console.info, 'INFO')
+}
 
 function createWindow(): void {
   // Create the browser window.

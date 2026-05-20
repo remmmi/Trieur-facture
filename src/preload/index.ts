@@ -14,7 +14,8 @@ const api = {
     ipcRenderer.invoke('process-document', data),
 
   // AI OCR
-  aiPreProcess: (pdfPath: string): Promise<unknown> => ipcRenderer.invoke('ai-pre-process', pdfPath),
+  aiPreProcess: (pdfPath: string, forceOpus = false): Promise<unknown> =>
+    ipcRenderer.invoke('ai-pre-process', pdfPath, forceOpus),
   aiAbort: (): Promise<boolean> => ipcRenderer.invoke('ai-abort'),
 
   // Settings
@@ -65,6 +66,9 @@ const api = {
   getUsePaymentDateFiling: (): Promise<boolean> => ipcRenderer.invoke('get-use-payment-date-filing'),
   setUsePaymentDateFiling: (value: boolean): Promise<boolean> =>
     ipcRenderer.invoke('set-use-payment-date-filing', value),
+  getAiModel: (): Promise<'sonnet' | 'opus'> => ipcRenderer.invoke('get-ai-model'),
+  setAiModel: (value: 'sonnet' | 'opus'): Promise<boolean> =>
+    ipcRenderer.invoke('set-ai-model', value),
   getPageCount: (filePath: string): Promise<number> =>
     ipcRenderer.invoke('get-page-count', filePath),
   checkFolderMode: (basePath: string, year: string): Promise<'month' | 'quarter' | 'unknown'> =>
