@@ -190,6 +190,9 @@ Trois sub-agents specialises dans `.claude/agents/` :
 - source_test.zip et target_test.zip en local (proteges par mot de passe, pas dans le repo)
 - 12 factures PDF dont un ticket de caisse Leroy Merlin
 
+## Commits
+- Pas de `Co-Authored-By: Claude` ni `Generated with Claude Code` dans les messages de commit (regle reprise globalement via `~/.claude/settings.json` + `.claude/settings.json` projet avec `includeCoAuthoredBy: false`).
+
 ## CI/CD
 - `.github/workflows/build.yml` : build Windows sur tag `v*`
 - TOUJOURS `npm install --force` (pas `npm ci`) -- deps platform-specific Linux dans le lock file
