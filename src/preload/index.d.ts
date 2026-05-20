@@ -110,6 +110,16 @@ export interface Api {
   setUsePaymentDateFiling: (value: boolean) => Promise<boolean>
   getAiModel: () => Promise<'sonnet' | 'opus'>
   setAiModel: (value: 'sonnet' | 'opus') => Promise<boolean>
+  getAppVersion: () => Promise<string>
+  checkForUpdates: () => Promise<{
+    hasUpdate: boolean
+    currentVersion: string
+    latestVersion?: string
+    latestUrl?: string
+    publishedAt?: string
+    error?: string
+  }>
+  openReleasePage: (url?: string) => Promise<boolean>
   getPageCount: (filePath: string) => Promise<number>
   checkFolderMode: (basePath: string, year: string) => Promise<'month' | 'quarter' | 'unknown'>
 

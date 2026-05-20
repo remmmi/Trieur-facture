@@ -65,6 +65,13 @@ interface AppState {
   setAiProcessing: (value: boolean) => void
   lastAiModel: 'sonnet' | 'opus' | null
   setLastAiModel: (value: 'sonnet' | 'opus' | null) => void
+  updateInfo: {
+    hasUpdate: boolean
+    currentVersion: string
+    latestVersion?: string
+    latestUrl?: string
+  } | null
+  setUpdateInfo: (info: AppState['updateInfo']) => void
 
   // Stamp position (ratio 0-1 relative to page size) and rotation (degrees)
   stampX: number
@@ -174,6 +181,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   setAiProcessing: (value) => set({ aiProcessing: value }),
   lastAiModel: null,
   setLastAiModel: (value) => set({ lastAiModel: value }),
+  updateInfo: null,
+  setUpdateInfo: (info) => set({ updateInfo: info }),
 
   stampX: 0.35,
   stampY: 0.05,

@@ -37,7 +37,8 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
     setDestinationFolder,
     setFileQueue,
     setHasStarted,
-    fileQueue
+    fileQueue,
+    updateInfo
   } = useAppStore()
 
   const [filingGranularity, setFilingGranularity] = useState<'month' | 'quarter' | 'quarter-month'>('month')
@@ -142,8 +143,12 @@ export function WelcomeScreen({ onOpenSettings }: WelcomeScreenProps): React.JSX
         size="icon"
         className="absolute top-4 right-4"
         onClick={onOpenSettings}
+        title={updateInfo?.hasUpdate ? `Mise a jour disponible : ${updateInfo.latestVersion}` : 'Parametres'}
       >
         <Settings className="h-5 w-5" />
+        {updateInfo?.hasUpdate && (
+          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" />
+        )}
       </Button>
       <div className="absolute bottom-2 left-2">
         <ThemeToggle />

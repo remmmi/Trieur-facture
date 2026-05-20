@@ -69,6 +69,17 @@ const api = {
   getAiModel: (): Promise<'sonnet' | 'opus'> => ipcRenderer.invoke('get-ai-model'),
   setAiModel: (value: 'sonnet' | 'opus'): Promise<boolean> =>
     ipcRenderer.invoke('set-ai-model', value),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('get-app-version'),
+  checkForUpdates: (): Promise<{
+    hasUpdate: boolean
+    currentVersion: string
+    latestVersion?: string
+    latestUrl?: string
+    publishedAt?: string
+    error?: string
+  }> => ipcRenderer.invoke('check-for-updates'),
+  openReleasePage: (url?: string): Promise<boolean> =>
+    ipcRenderer.invoke('open-release-page', url),
   getPageCount: (filePath: string): Promise<number> =>
     ipcRenderer.invoke('get-page-count', filePath),
   checkFolderMode: (basePath: string, year: string): Promise<'month' | 'quarter' | 'unknown'> =>

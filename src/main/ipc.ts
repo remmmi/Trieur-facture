@@ -1,4 +1,5 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, app } from 'electron'
+import { checkForUpdates, openReleasePage } from './services/updateService'
 import { readFile, writeFile, access, unlink } from 'fs/promises'
 import { tmpdir } from 'os'
 import {
@@ -260,6 +261,14 @@ export async function registerIpcHandlers(): Promise<void> {
   ipcMain.handle('get-ai-model', async () => getAiModel())
   ipcMain.handle('set-ai-model', async (_event, value: 'sonnet' | 'opus') => {
     await setAiModel(value)
+    return true
+  })
+
+  // --- Update check ---
+  ipcMain.handle('get-app-version', () => app.getVersion())
+  ipcMain.handle('check-for-updates', async () => checkForUpdates())
+  ipcMain.handle('open-release-page', (_event, url?: string) => {
+    openReleasePage(url)
     return true
   })
   ipcMain.handle('get-page-count', async (_event, filePath: string) => {

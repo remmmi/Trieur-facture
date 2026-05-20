@@ -8,7 +8,7 @@ interface FileQueueProps {
 }
 
 export function FileQueue({ onOpenSettings }: FileQueueProps): React.JSX.Element {
-  const { fileQueue, currentIndex, nextFile, prevFile, sourceFolder, isProcessing, setFileQueue, setCurrentPdfPath, resetForm } = useAppStore()
+  const { fileQueue, currentIndex, nextFile, prevFile, sourceFolder, isProcessing, setFileQueue, setCurrentPdfPath, resetForm, updateInfo } = useAppStore()
   const [reloading, setReloading] = useState(false)
 
   const currentFile = fileQueue[currentIndex]
@@ -73,8 +73,17 @@ export function FileQueue({ onOpenSettings }: FileQueueProps): React.JSX.Element
         <span className="text-sm text-muted-foreground truncate max-w-[250px]">
           {currentFile ? currentFile.name : ''}
         </span>
-        <Button variant="ghost" size="icon" onClick={onOpenSettings}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onOpenSettings}
+          className="relative"
+          title={updateInfo?.hasUpdate ? `Mise a jour disponible : ${updateInfo.latestVersion}` : 'Parametres'}
+        >
           <Settings className="h-4 w-4" />
+          {updateInfo?.hasUpdate && (
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" />
+          )}
         </Button>
       </div>
     </div>

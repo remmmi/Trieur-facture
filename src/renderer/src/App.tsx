@@ -75,6 +75,22 @@ function App(): React.JSX.Element {
     loadPlanComptable()
   }, [])
 
+  // Check for new version on startup (silent : ignore errors)
+  useEffect(() => {
+    window.api.checkForUpdates().then((result) => {
+      if (result.hasUpdate && result.latestVersion) {
+        useAppStore.getState().setUpdateInfo({
+          hasUpdate: true,
+          currentVersion: result.currentVersion,
+          latestVersion: result.latestVersion,
+          latestUrl: result.latestUrl
+        })
+      }
+    }).catch(() => {
+      // network down, offline, GitHub rate limit : on ignore silencieusement
+    })
+  }, [])
+
   // Load PDF when current file changes (only after user started)
   useEffect(() => {
     if (!hasStarted) return

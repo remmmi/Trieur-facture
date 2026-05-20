@@ -4,8 +4,8 @@
 Application desktop Electron pour trier, tamponner (numero comptable) et classer des factures PDF/DOC/DOCX.
 
 **Repo** : https://github.com/remmmi/Trieur-facture branche main
-**Version** : 1.2.0
-**Derniere release** : https://github.com/remmmi/Trieur-facture/releases/tag/v1.2.0
+**Version** : 1.3.0
+**Derniere release** : https://github.com/remmmi/Trieur-facture/releases/tag/v1.3.0
 
 ## Plateformes
 - **Developpement/test** : Debian (Linux)

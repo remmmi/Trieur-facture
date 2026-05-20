@@ -20,7 +20,9 @@ import {
   Upload,
   RotateCcw,
   FileUp,
-  Loader2
+  Loader2,
+  Download,
+  RefreshCw
 } from 'lucide-react'
 
 interface SupplierMapping {
@@ -51,6 +53,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
   const [paymentModes, setPaymentModes] = useState('CB|Virement|Prelevement')
   const [usePaymentDateFiling, setUsePaymentDateFiling] = useState(false)
   const [aiModel, setAiModel] = useState<'sonnet' | 'opus'>('sonnet')
+  const [appVersion, setAppVersion] = useState<string>('')
+  const [updateChecking, setUpdateChecking] = useState(false)
+  const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null)
+  const updateInfo = useAppStore((s) => s.updateInfo)
+  const setUpdateInfo = useAppStore((s) => s.setUpdateInfo)
   const [mappings, setMappings] = useState<SupplierMapping[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editForm, setEditForm] = useState<SupplierMapping>({
@@ -90,7 +97,32 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     window.api.getPaymentModes().then(setPaymentModes)
     window.api.getUsePaymentDateFiling().then(setUsePaymentDateFiling)
     window.api.getAiModel().then(setAiModel)
+    window.api.getAppVersion().then(setAppVersion)
   }, [])
+
+  const handleCheckUpdates = async (): Promise<void> => {
+    setUpdateChecking(true)
+    setUpdateCheckMessage(null)
+    try {
+      const result = await window.api.checkForUpdates()
+      if (result.hasUpdate && result.latestVersion) {
+        setUpdateInfo({
+          hasUpdate: true,
+          currentVersion: result.currentVersion,
+          latestVersion: result.latestVersion,
+          latestUrl: result.latestUrl
+        })
+        setUpdateCheckMessage(`Version ${result.latestVersion} disponible`)
+      } else if (result.error) {
+        setUpdateCheckMessage(`Erreur : ${result.error}`)
+      } else {
+        setUpdateInfo(null)
+        setUpdateCheckMessage('Vous etes a jour')
+      }
+    } finally {
+      setUpdateChecking(false)
+    }
+  }
 
   useEffect(() => {
     loadData()
@@ -284,6 +316,53 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
       <div className="flex-1 overflow-auto p-6 max-w-3xl mx-auto w-full">
         {activeTab === 'general' && (
           <div className="space-y-8">
+            {/* Mises a jour */}
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold">Mises a jour</h2>
+                  {appVersion && (
+                    <p className="text-xs text-muted-foreground font-mono">
+                      Version actuelle : v{appVersion}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCheckUpdates}
+                  disabled={updateChecking}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${updateChecking ? 'animate-spin' : ''}`} />
+                  {updateChecking ? 'Verification...' : 'Verifier maintenant'}
+                </Button>
+              </div>
+              {updateInfo?.hasUpdate && updateInfo.latestVersion && (
+                <div className="flex items-center justify-between gap-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5">
+                  <div className="text-sm">
+                    <span className="font-medium">Nouvelle version {updateInfo.latestVersion} disponible</span>
+                    <p className="text-xs text-muted-foreground">
+                      Telecharger l'installeur sur GitHub puis lancer le .exe pour mettre a jour.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => window.api.openReleasePage(updateInfo.latestUrl)}
+                    className="gap-1.5 shrink-0"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Telecharger
+                  </Button>
+                </div>
+              )}
+              {updateCheckMessage && !updateInfo?.hasUpdate && (
+                <p className="text-xs text-muted-foreground">{updateCheckMessage}</p>
+              )}
+            </section>
+
             {/* Dossiers */}
             <FolderSettings />
 
